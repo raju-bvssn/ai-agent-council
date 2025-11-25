@@ -254,14 +254,97 @@ State is:
 - Restorable for workflow resumption
 - Traceable for debugging
 
-## TODO: Phase 2 Enhancements
+## Workflow Execution (Phase 2C)
 
-- [ ] Implement streaming updates for UI
-- [ ] Add parallel reviewer coordination
-- [ ] Implement workflow checkpointing
-- [ ] Add workflow pause/resume
-- [ ] Implement partial workflow execution
-- [ ] Add workflow branching for alternative designs
-- [ ] Implement workflow templates
+### API Endpoints
+
+**Start Workflow:**
+```bash
+POST /api/v1/workflow/{session_id}/start
+```
+Starts workflow execution in background. Returns immediately with status `in_progress`.
+
+**Approve Design:**
+```bash
+POST /api/v1/workflow/{session_id}/approve
+{
+  "comment": "Looks good, proceed"
+}
+```
+Approves design when status is `awaiting_human`. Continues to FAQ generation.
+
+**Request Revision:**
+```bash
+POST /api/v1/workflow/{session_id}/revise
+{
+  "comment": "Please address security concerns"
+}
+```
+Requests revision when status is `awaiting_human`. Sends back to Solution Architect.
+
+**Get Status:**
+```bash
+GET /api/v1/workflow/{session_id}/status
+```
+Returns current workflow status and results.
+
+### Workflow States
+
+| Status | Description | User Action |
+|--------|-------------|-------------|
+| `pending` | Not yet started | Can start workflow |
+| `in_progress` | Executing | Wait and poll status |
+| `awaiting_human` | Needs approval | Approve or request revision |
+| `completed` | Finished successfully | View final output |
+| `failed` | Error occurred | Review error and retry |
+| `cancelled` | User cancelled | Create new session |
+
+### Execution Flow
+
+1. **Start**: User clicks "Start Council" in UI
+   - API receives `POST /workflow/{session_id}/start`
+   - Workflow runs in background thread
+   - Status changes to `in_progress`
+
+2. **Agents Execute**:
+   - Master Architect analyzes requirements
+   - Solution Architect creates design
+   - Reviewers evaluate in parallel
+   - Status remains `in_progress`
+
+3. **Human Approval** (if needed):
+   - Status changes to `awaiting_human`
+   - UI displays approval panel
+   - User approves or requests revision
+
+4. **FAQ Generation**:
+   - FAQ Agent extracts Q&A from discussion
+   - Populates `faq_entries` and `decision_rationale`
+
+5. **Finalize**:
+   - Status changes to `completed`
+   - Final design and FAQ available
+   - UI shows final output
+
+### State Persistence
+
+After each node execution:
+1. State is updated with node results
+2. State is persisted to SQLite
+3. UI can poll and display current state
+
+This ensures:
+- Progress is not lost on failures
+- Real-time status updates available
+- Workflow resumable after interruption
+
+## Phase 3 Enhancements
+
+- [ ] Implement streaming updates for UI (WebSocket/SSE)
+- [ ] Add LangGraph checkpointing for better pause/resume
+- [ ] Implement workflow branching for alternative designs
+- [ ] Add workflow templates
+- [ ] Integrate tool APIs (Vibes, MCP, Lucid, NotebookLM)
 - [ ] Add workflow analytics and metrics
+- [ ] Implement workflow versioning
 
