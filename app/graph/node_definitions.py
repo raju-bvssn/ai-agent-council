@@ -259,13 +259,39 @@ def faq_generation_node(state: WorkflowState) -> dict[str, Any]:
         success=output.success
     )
 
-    # TODO: Phase 2+ - Parse output and update faq_entries and decision_rationale
-
+    # Parse output and update faq_entries and decision_rationale
+    if output.success:
+        try:
+            import json
+            faq_data = json.loads(output.content)
+            
+            # Extract FAQ entries
+            if "faq_entries" in faq_data:
+                state.faq_entries = faq_data["faq_entries"]
+                logger.info("faq_entries_extracted", count=len(state.faq_entries))
+            
+            # Extract decision rationale
+            if "decision_rationale" in faq_data:
+                state.decision_rationale = faq_data["decision_rationale"]
+                logger.info("decision_rationale_extracted")
+            
+            # Extract key takeaways if present
+            if "key_takeaways" in faq_data:
+                state.metadata["key_takeaways"] = faq_data["key_takeaways"]
+                
+        except json.JSONDecodeError as e:
+            logger.warning("faq_json_parse_failed", error=str(e))
+            # Fallback: treat entire content as rationale
+            state.decision_rationale = output.content
+    
     # Persist state
     _persist_state(state)
 
     return {
         "messages": state.messages,
+        "faq_entries": state.faq_entries,
+        "decision_rationale": state.decision_rationale,
+        "metadata": state.metadata,
         "updated_at": state.updated_at,
     }
 
@@ -282,18 +308,37 @@ def finalize_node(state: WorkflowState) -> dict[str, Any]:
     """
     logger.info("executing_finalize_node", session_id=state.session_id)
 
+    # Copy current design to final design
+    if state.current_design:
+        state.final_design = state.current_design.model_copy(deep=True)
+        logger.info("final_design_set", version=state.final_design.version)
+
+    # Generate final summary
+    summary_parts = [
+        f"Agent Council Session completed for: {state.user_request}",
+        f"Total messages: {len(state.messages)}",
+        f"Total reviews: {len(state.reviews)}",
+        f"Revisions: {state.revision_count}",
+    ]
+    
+    if state.human_approved:
+        summary_parts.append("Human approval: ✅ Approved")
+    
+    state.final_summary = "\n".join(summary_parts)
+
     # Mark as completed
     state.status = WorkflowStatus.COMPLETED
 
-    # TODO: Phase 2+ - Generate final summary
-    # TODO: Phase 2+ - Export diagrams
-    # TODO: Phase 2+ - Create deliverables
+    # TODO: Phase 3 - Export diagrams (Lucid AI integration)
+    # TODO: Phase 3 - Create deliverables (PDF, Markdown)
 
     # Persist final state
     _persist_state(state)
 
     return {
         "status": state.status,
+        "final_design": state.final_design,
+        "final_summary": state.final_summary,
         "updated_at": state.updated_at,
     }
 

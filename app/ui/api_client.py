@@ -156,26 +156,19 @@ class APIClient:
         if response.status_code != 204:
             self._handle_response(response)
     
-    def execute_workflow(self, session_id: str, stream: bool = False) -> Dict[str, Any]:
+    def start_workflow(self, session_id: str) -> Dict[str, Any]:
         """
-        Execute workflow for a session.
+        Start workflow execution for a session.
         
         Args:
             session_id: Session ID
-            stream: Whether to stream updates
             
         Returns:
-            Workflow execution response
+            WorkflowResult with current status
         """
-        payload = {
-            "session_id": session_id,
-            "stream": stream
-        }
-        
         response = requests.post(
-            self._url("/workflow/execute"),
-            json=payload,
-            timeout=300  # Longer timeout for workflow execution
+            self._url(f"/workflow/{session_id}/start"),
+            timeout=60  # Workflow starts in background
         )
         
         return self._handle_response(response)
@@ -199,49 +192,49 @@ class APIClient:
     
     def approve_design(self, session_id: str, feedback: Optional[str] = None) -> Dict[str, Any]:
         """
-        Approve design (human-in-the-loop).
+        Approve design and continue workflow.
         
         Args:
             session_id: Session ID
-            feedback: Optional approval feedback
+            feedback: Optional approval comment
             
         Returns:
-            Approval response
-            
-        TODO: Phase 2B+ - Implement approval endpoint
+            WorkflowResult with updated status
         """
         payload = {
-            "session_id": session_id,
-            "approved": True,
-            "feedback": feedback
+            "comment": feedback
         }
         
-        # Placeholder - endpoint not yet implemented
-        logger.warning("approve_design_not_implemented")
-        return {"status": "not_implemented"}
+        response = requests.post(
+            self._url(f"/workflow/{session_id}/approve"),
+            json=payload,
+            timeout=60
+        )
+        
+        return self._handle_response(response)
     
     def request_revision(self, session_id: str, feedback: str) -> Dict[str, Any]:
         """
-        Request design revision.
+        Request design revision and continue workflow.
         
         Args:
             session_id: Session ID
-            feedback: Revision feedback
+            feedback: Revision feedback (what to change)
             
         Returns:
-            Revision response
-            
-        TODO: Phase 2B+ - Implement revision endpoint
+            WorkflowResult with updated status
         """
         payload = {
-            "session_id": session_id,
-            "approved": False,
-            "feedback": feedback
+            "comment": feedback
         }
         
-        # Placeholder - endpoint not yet implemented
-        logger.warning("request_revision_not_implemented")
-        return {"status": "not_implemented"}
+        response = requests.post(
+            self._url(f"/workflow/{session_id}/revise"),
+            json=payload,
+            timeout=60
+        )
+        
+        return self._handle_response(response)
     
     # Admin Functions
     

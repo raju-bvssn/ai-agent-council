@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.admin_routes import admin_router
 from app.api.controllers import AgentController, SessionController, WorkflowController
+from app.api.workflow_routes import workflow_router
 from app.api.schemas import (
     AgentExecutionRequest,
     AgentExecutionResponse,
@@ -147,7 +148,7 @@ def get_api_router() -> APIRouter:
     router = APIRouter()
     router.include_router(health_router)
     router.include_router(session_router)
-    router.include_router(workflow_router)
+    router.include_router(workflow_router)  # Workflow execution routes
     router.include_router(agent_router)
     router.include_router(admin_router)  # Admin routes
     return router

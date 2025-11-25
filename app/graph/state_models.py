@@ -178,3 +178,79 @@ class WorkflowState(BaseModel):
             datetime: lambda v: v.isoformat()
         }
 
+
+class HumanAction(str, Enum):
+    """Human actions in workflow."""
+    APPROVE = "approve"
+    REVISE = "revise"
+    REJECT = "reject"
+
+
+class WorkflowResult(BaseModel):
+    """
+    Workflow execution result for API responses.
+    
+    Lightweight model for returning workflow status to clients.
+    """
+    session_id: str
+    status: WorkflowStatus
+    current_node: Optional[str] = None
+    current_agent: Optional[AgentRole] = None
+    
+    # Timeline and progress
+    messages: list[AgentMessage] = Field(default_factory=list)
+    reviews: list[ReviewFeedback] = Field(default_factory=list)
+    
+    # Current design
+    design: Optional[DesignDocument] = None
+    
+    # FAQ and rationale
+    faq_entries: list[dict[str, str]] = Field(default_factory=list)
+    decision_rationale: str = ""
+    
+    # Metadata
+    revision_count: int = 0
+    max_revisions: int = 3
+    human_approved: bool = False
+    
+    # Error handling
+    error: Optional[str] = None
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    
+    @classmethod
+    def from_workflow_state(cls, state: WorkflowState, current_node: Optional[str] = None) -> "WorkflowResult":
+        """
+        Create WorkflowResult from WorkflowState.
+        
+        Args:
+            state: Complete workflow state
+            current_node: Current node name (if known)
+            
+        Returns:
+            WorkflowResult for API response
+        """
+        return cls(
+            session_id=state.session_id,
+            status=state.status,
+            current_node=current_node,
+            current_agent=state.current_agent,
+            messages=state.messages,
+            reviews=state.reviews,
+            design=state.current_design,
+            faq_entries=state.faq_entries,
+            decision_rationale=state.decision_rationale,
+            revision_count=state.revision_count,
+            max_revisions=state.max_revisions,
+            human_approved=state.human_approved,
+            error=state.errors[-1] if state.errors else None,
+            errors=state.errors,
+            warnings=state.warnings,
+        )
+    
+    class Config:
+        """Pydantic config."""
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+

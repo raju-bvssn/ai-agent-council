@@ -155,21 +155,20 @@ def render_agent_selector():
                 with st.spinner("🚀 Starting workflow execution..."):
                     api_client = get_api_client()
                     
-                    # Execute workflow
-                    response = api_client.execute_workflow(
-                        session_id=session_id,
-                        stream=False
-                    )
+                    # Start workflow
+                    response = api_client.start_workflow(session_id=session_id)
                     
                     logger.info(
                         "ui_workflow_started",
                         session_id=session_id,
-                        agent_count=len(st.session_state.selected_agents)
+                        agent_count=len(st.session_state.selected_agents),
+                        status=response.get("status")
                     )
                     
                     # Check if workflow started successfully
-                    if response.get("status") in ["in_progress", "completed"]:
+                    if response.get("status") in ["in_progress", "pending", "completed"]:
                         st.success("✅ Workflow started successfully!")
+                        st.info("🔄 Agents are now working on your request...")
                         st.session_state.page = "feedback_panel"
                         time.sleep(1)  # Brief pause to show success message
                         st.rerun()
