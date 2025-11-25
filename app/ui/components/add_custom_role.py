@@ -63,8 +63,7 @@ def render_add_custom_role():
         
         st.success(f"✅ Added custom role: {custom_role_name}")
         
-        # Clear input
-        st.session_state.custom_role_input = ""
+        # Rerun to refresh UI (input will be cleared automatically)
         st.rerun()
     
     elif add_button and not custom_role_name.strip():
