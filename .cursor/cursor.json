@@ -1,0 +1,151 @@
+{
+  "projectRules": [
+    {
+      "title": "Global Engineering Standards",
+      "content": [
+        "You are a Senior Staff Engineer and Architect responsible for enforcing engineering excellence.",
+        "Always apply SOLID principles, clean architecture, separation of concerns, modularity, and testability.",
+        "All code must use full type annotations, docstrings, descriptive naming, and zero duplication.",
+        "No inline secrets. Use environment variables with validation.",
+        "Robust error handling using custom exceptions only.",
+        "Security best practices for every feature—sanitize all inputs, protect LLM calls, avoid prompt injection.",
+        "Performance-aware designs: caching, batching, streaming, lazy loading, and no unnecessary computation.",
+        "Accessibility and responsive UI must be maintained at all times.",
+        "Cursor must auto-generate tests for new modules and maintain 85%+ test coverage.",
+        "Cursor must auto-generate/update Mermaid diagrams in /docs for architecture, workflows, sequence, and component maps."
+      ]
+    },
+    {
+      "title": "Project Type Rules",
+      "content": [
+        "This project is a LangGraph Multi-Agent Workflow System.",
+        "Must support multi-agent orchestration, revision loops, stateful memories, and human-in-the-loop interactions.",
+        "Backend: Python, FastAPI, LangGraph, LangSmith.",
+        "Frontend: Streamlit or React with modular components.",
+        "LLM providers supported: Google Gemini (default), HuggingFace, DeepInfra, Groq, OpenAI (optional).",
+        "TTS: Google TTS + fallback engine.",
+        "History tracking for all sessions with persistent state models."
+      ]
+    },
+    {
+      "title": "Required Folder Structure",
+      "content": [
+        "/app/",
+        "    /agents/",
+        "        performer.py",
+        "        critic.py",
+        "        factory.py",
+        "        reviewer_agent.py",
+        "        master_agent.py",
+        "        solution_architect_agent.py",
+        "        faq_agent.py",
+        "    /graph/",
+        "        workflow.py",
+        "        evaluator.py",
+        "        state_models.py",
+        "        node_definitions.py",
+        "    /llm/",
+        "        providers.py",
+        "        factory.py",
+        "        model_catalog.py",
+        "        safety.py",
+        "    /tools/",
+        "        vibes.py",
+        "        mcp_server.py",
+        "        ai_chain.py",
+        "        lucid_diagrams.py",
+        "        notebooklm.py",
+        "    /ui/",
+        "        sidebar.py",
+        "        main_view.py",
+        "        council_setup.py",
+        "        agent_selector.py",
+        "        feedback_panel.py",
+        "        approval_panel.py",
+        "        final_output.py",
+        "    /api/",
+        "        routes.py",
+        "        schemas.py",
+        "        controllers.py",
+        "    /state/",
+        "        session.py",
+        "        persistence.py",
+        "    /utils/",
+        "        settings.py",
+        "        config_loader.py",
+        "        caching.py",
+        "        formatting.py",
+        "        exceptions.py",
+        "        logging.py",
+        "    app.py",
+        "main.py",
+        "requirements.txt",
+        "/docs/",
+        "    architecture.md",
+        "    workflow.md",
+        "    sequence_diagram.md",
+        "    component_map.md"
+      ]
+    },
+    {
+      "title": "LangGraph Workflow Rules",
+      "content": [
+        "All workflow nodes must be pure functions whenever possible.",
+        "Nodes must be deterministic unless intentionally stochastic.",
+        "Conditional edges must control revision cycles.",
+        "Graph must support: Master → Reviewer → Human → Solution Architect → FAQ Agent → Master loops.",
+        "Use Pydantic for all state models.",
+        "Enable LangSmith tracing in all nodes.",
+        "Always update workflow.md with new Mermaid diagrams."
+      ]
+    },
+    {
+      "title": "Agent Design Rules",
+      "content": [
+        "Each agent must be implemented as a clean class with constructor injection.",
+        "Each agent must expose a `.run()` or `.invoke()` method only.",
+        "No direct LLM calls inside agents—use LLM provider classes.",
+        "Agents must be testable without real external tools—use mock providers.",
+        "Agents must return structured JSON outputs."
+      ]
+    },
+    {
+      "title": "LLM Provider Rules",
+      "content": [
+        "ProviderFactory must route between Google Gemini, HuggingFace, Groq, DeepInfra, and OpenAI.",
+        "Each provider must implement `.generate(prompt, **kwargs)`.",
+        "All calls must include: timeout, retries, error handling, safe system prefixes.",
+        "Unified response format across providers.",
+        "No provider-specific logic leaking into workflow modules."
+      ]
+    },
+    {
+      "title": "TTS Rules",
+      "content": [
+        "google_tts.py must implement proper REST API integration.",
+        "fallback_tts.py must provide Web Speech fallback.",
+        "Cache MP3/WAV outputs for performance.",
+        "TTSFactory must route between engines transparently."
+      ]
+    },
+    {
+      "title": "Testing Rules",
+      "content": [
+        "Auto-generate unit tests for every new module.",
+        "Integration tests for LangGraph workflows.",
+        "Mock LLM tests.",
+        "Mock TTS tests.",
+        "Session storage tests.",
+        "85% minimum coverage enforced."
+      ]
+    },
+    {
+      "title": "Documentation Rules",
+      "content": [
+        "Auto-generate Mermaid diagrams whenever workflows or architecture modules change.",
+        "Update architecture.md, workflow.md, sequence_diagram.md, and component_map.md.",
+        "README must include diagrams, setup instructions, and usage examples."
+      ]
+    }
+  ]
+}

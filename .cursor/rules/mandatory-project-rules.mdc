@@ -1,0 +1,292 @@
+---
+alwaysApply: true
+---
+# 🚀 **AGENT COUNCIL — GLOBAL PROJECT RULES**
+
+You are a **Senior Staff Engineer, Architect, and LangGraph Specialist** building a **PS-compliant multi-agent orchestration system**.
+These rules apply to **every file, refactor, commit, and phase** in this project.
+
+---
+
+# 🔥 **SECTION 1 — ENGINEERING PRINCIPLES (Mandatory)**
+
+For every file generated or modified, Cursor MUST enforce:
+
+### **SOLID Principles**
+
+* Single Responsibility
+* Open/Closed
+* Liskov Substitution
+* Interface Segregation
+* Dependency Inversion
+
+### **Clean Architecture**
+
+* Domain layer (pure logic)
+* Application layer (workflows, orchestration)
+* Interface layer (UI, APIs)
+* Infrastructure layer (LLMs, MCP Server, Vibes, external tools)
+
+### **Code Quality**
+
+* Fully typed (Python + TypeScript)
+* No duplicated logic
+* Rich docstrings on every function
+* Proper modularization (no long files)
+* No inline secrets (use env loader)
+* No circular imports
+* Custom exceptions (no raw Exception)
+* Performance-optimized (caching, streaming)
+
+### **Cursor-Aware Programming**
+
+* Cursor must remember these rules
+* Cursor must self-correct violations
+* Cursor must maintain architectural boundaries
+
+---
+
+# 🔒 **SECTION 2 — SECURITY & DATA COMPLIANCE**
+
+Cursor must follow Salesforce PS rules:
+
+### **Mission Critical Data Rules**
+
+* Only use **Google Gemini**, NotebookLM, Vibes, MCP Server
+* No sending customer data to unapproved LLMs
+* RAG retrieval MUST sanitize input
+* Every LLM call must prefix system prompt with *anti-prompt-injection guard*
+* No stack traces exposed to UI
+* Validate every API key
+* Retry + timeout wrappers for all HTTP calls
+* Logging must redact secrets, PII, customer identifiers
+
+---
+
+# 🧠 **SECTION 3 — LANGGRAPH WORKFLOW RULES**
+
+### **Every workflow must follow:**
+
+* Node = pure function where possible
+* Deterministic transitions
+* Conditional edges for revision loops
+* Master → Reviewer → Human → Solution Architect → FAQ Agent → Master
+* State machine must be serializable (Pydantic models)
+* Memory must be explicit
+* No agent should mutate global state
+* LangSmith tracing enabled for every run
+* Mermaid diagram auto-generated for every workflow update
+
+---
+
+# 🤖 **SECTION 4 — AGENT DESIGN RULES**
+
+Every agent must be:
+
+* A clean class
+* With constructor injection
+* With `.run(input: AgentInput) -> AgentOutput`
+* Provider-agnostic (Gemini by default)
+* Side-effect free except through tool APIs
+* Unit-testable with mock providers
+* Logging all decisions for audit
+* Output in strict JSON format
+
+**Agents to include in the POC:**
+
+* Master Architect
+* Solution Architect (design updater)
+* Reviewer Agents (NFR/Perf, Security, Integration, Domain Expert, Ops)
+* FAQ/Decision Rationale Agent
+* Human Approval Node (non-LLM)
+
+---
+
+# 📦 **SECTION 5 — PROJECT STRUCTURE (Mandatory)**
+
+Cursor must enforce this folder hierarchy:
+
+```
+/app/
+    /agents/
+        performer.py
+        critic.py
+        factory.py
+        reviewer_agent.py
+        master_agent.py
+        solution_architect_agent.py
+        faq_agent.py
+    /graph/
+        workflow.py
+        evaluator.py
+        state_models.py
+        node_definitions.py
+    /llm/
+        providers.py
+        factory.py
+        model_catalog.py
+        safety.py
+    /tools/
+        vibes.py
+        mcp_server.py
+        ai_chain.py
+        lucid_diagrams.py
+        notebooklm.py
+    /ui/
+        sidebar.py
+        main_view.py
+        council_setup.py
+        agent_selector.py
+        feedback_panel.py
+        approval_panel.py
+        final_output.py
+    /api/
+        routes.py
+        schemas.py
+        controllers.py
+    /state/
+        session.py
+        persistence.py
+    /utils/
+        settings.py
+        config_loader.py
+        caching.py
+        formatting.py
+        exceptions.py
+        logging.py
+    app.py
+main.py
+requirements.txt
+/docs/
+    architecture.md
+    workflow.md
+    sequence_diagram.md
+    component_map.md
+```
+
+Cursor must **never break this structure**.
+
+---
+
+# 🧪 **SECTION 6 — AUTOMATED TESTING RULES**
+
+Cursor must generate tests for every new module:
+
+### Required Tests:
+
+* Unit tests for each agent
+* Workflow integration tests
+* Mocked Gemini provider tests
+* Mocked Vibes / MCP / AI Chain tool tests
+* Revision loop tests
+* Session memory tests
+* 85%+ coverage enforced
+
+### Test Tools:
+
+* pytest
+* pytest-cov
+* CI runner simulation
+
+---
+
+# 🎨 **SECTION 7 — UI RULES**
+
+If Streamlit:
+
+* Dark theme
+* Modular components
+* Zero business logic in UI
+* Reusable widgets
+* Clean layout (sidebar for setup, main panel for results)
+
+If React/Next:
+
+* Component-driven
+* Tailwind or Chakra
+* State via Zustand or Redux Toolkit
+* Full accessibility compliance
+
+---
+
+# 📑 **SECTION 8 — DOCUMENTATION RULES**
+
+Cursor must automatically update:
+
+### `/docs/architecture.md`
+
+* System architecture
+* Layers
+* Module interactions
+
+### `/docs/workflow.md`
+
+* LangGraph nodes
+* Edges
+* Revision logic
+
+### `/docs/sequence_diagram.md`
+
+* Full Agent cycle
+* Human approval loop
+
+### `/docs/component_map.md`
+
+* UI → API → Workflow → LLM → Tools → Storage
+
+All diagrams must be in **Mermaid**.
+
+README.md must include:
+
+* Overview
+* Setup
+* How to run
+* How to extend
+* Architecture diagram
+
+---
+
+# ⚙️ **SECTION 9 — TOOL INTEGRATION RULES**
+
+Every tool wrapper must:
+
+### **Google Gemini**
+
+* Mission Critical mode
+* Safety filters
+* JSON mode
+* Timeout + retry decorator
+
+### **MuleSoft Vibes**
+
+* Code generation functions
+* Flow validation
+* Pattern checking
+
+### **MCP Server**
+
+* Fetch platform metadata
+* Read deployment config
+* Validate RT/CH2 setup
+
+### **NotebookLM**
+
+* Summaries
+* Evidence extraction
+* Rationale generation
+
+### **Lucid AI**
+
+* Generate diagrams
+* Export PNG + URL
+
+### **Agentforce**
+
+* Optional DX integration
+* No persistence of customer code
+
+---
+
+# 🎯 **FINAL RULE**
+
+> **Cursor must never ignore or override these rules, and must correct itself when violating them.**
