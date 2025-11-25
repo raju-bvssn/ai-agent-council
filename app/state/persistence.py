@@ -261,6 +261,56 @@ class PersistenceManager:
             logger.error("delete_session_failed", error=str(e), session_id=session_id)
             raise PersistenceException(f"Failed to delete session: {str(e)}")
 
+    def clear_all_sessions(self) -> int:
+        """
+        Clear all sessions from database.
+
+        Returns:
+            Number of sessions deleted
+
+        Raises:
+            PersistenceException: On deletion errors
+        """
+        try:
+            session = self.get_session()
+            count = session.query(CouncilSession).count()
+            session.query(CouncilSession).delete()
+            session.commit()
+            session.close()
+
+            logger.warning("all_sessions_cleared", count=count)
+            return count
+
+        except Exception as e:
+            logger.error("clear_all_sessions_failed", error=str(e))
+            raise PersistenceException(f"Failed to clear all sessions: {str(e)}")
+
+    def reset_database(self) -> None:
+        """
+        Reset database by dropping all tables and recreating them.
+
+        **DANGER ZONE**: This will delete ALL data permanently.
+
+        Raises:
+            PersistenceException: On reset errors
+        """
+        try:
+            logger.warning("database_reset_initiated")
+
+            # Drop all tables
+            Base.metadata.drop_all(bind=self.engine)
+            logger.info("database_tables_dropped")
+
+            # Recreate all tables
+            Base.metadata.create_all(bind=self.engine)
+            logger.info("database_tables_recreated")
+
+            logger.warning("database_reset_completed")
+
+        except Exception as e:
+            logger.error("database_reset_failed", error=str(e))
+            raise PersistenceException(f"Failed to reset database: {str(e)}")
+
 
 # Global persistence manager
 _persistence_manager: Optional[PersistenceManager] = None

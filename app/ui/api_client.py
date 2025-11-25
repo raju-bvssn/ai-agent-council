@@ -242,6 +242,54 @@ class APIClient:
         # Placeholder - endpoint not yet implemented
         logger.warning("request_revision_not_implemented")
         return {"status": "not_implemented"}
+    
+    # Admin Functions
+    
+    def clear_all_sessions(self) -> Dict[str, Any]:
+        """
+        Clear all sessions from database.
+        
+        **WARNING**: This deletes all session data.
+        
+        Returns:
+            Status message with count
+        """
+        response = requests.post(
+            self._url("/admin/clear-sessions"),
+            timeout=self.timeout
+        )
+        
+        return self._handle_response(response)
+    
+    def reset_database(self) -> Dict[str, Any]:
+        """
+        Reset database (drop and recreate all tables).
+        
+        **DANGER ZONE**: This permanently deletes ALL data.
+        
+        Returns:
+            Status message
+        """
+        response = requests.post(
+            self._url("/admin/reset-database"),
+            timeout=self.timeout
+        )
+        
+        return self._handle_response(response)
+    
+    def get_admin_stats(self) -> Dict[str, Any]:
+        """
+        Get administrative statistics.
+        
+        Returns:
+            System statistics
+        """
+        response = requests.get(
+            self._url("/admin/stats"),
+            timeout=self.timeout
+        )
+        
+        return self._handle_response(response)
 
 
 def get_api_client(base_url: Optional[str] = None) -> APIClient:

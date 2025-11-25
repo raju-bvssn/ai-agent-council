@@ -160,6 +160,39 @@ Navigate to the **Final Output** page to see:
 - Decision rationale
 - Review history
 
+### 🔧 Admin Tools (POC/Demo)
+
+The Streamlit UI includes prototype administration tools in the sidebar:
+
+**System Stats**
+- View total sessions and status breakdown
+- Monitor system health
+
+**Clear All Sessions**
+- Removes all session data from the database
+- Useful for cleaning up test data during POC/demo
+- ⚠️ **WARNING**: This permanently deletes all sessions
+
+**Reset Database (Danger Zone)**
+- Drops and recreates all database tables
+- Permanently deletes ALL data
+- ⚠️ **DANGER**: Use with extreme caution
+- Requires two-step confirmation
+
+**API Endpoints**
+```bash
+# Get system statistics
+GET /admin/stats
+
+# Clear all sessions
+POST /admin/clear-sessions
+
+# Reset database (DANGER)
+POST /admin/reset-database
+```
+
+> **Note**: These admin functions are for POC/demo purposes only. In production, these should be properly secured with authentication, authorization, and audit logging.
+
 ## 🧪 Testing
 
 ```bash
