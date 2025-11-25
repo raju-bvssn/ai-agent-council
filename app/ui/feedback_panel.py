@@ -9,6 +9,7 @@ import time
 
 from app.graph.state_models import ReviewDecision
 from app.ui.api_client import get_api_client
+from app.ui.styles import close_slds_card, render_slds_card, render_status_pill
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -21,12 +22,15 @@ def render_feedback_panel(session_id: str):
     Args:
         session_id: Session ID to display feedback for
     """
-    st.header("💬 Agent Feedback & Reviews")
+    st.markdown("# 💬 Agent Feedback & Reviews")
+    st.caption("Real-time updates from your Agent Council")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # Add refresh button
-    col1, col2, col3 = st.columns([3, 1, 1])
+    col1, col2, col3 = st.columns([2, 1, 1])
     with col2:
-        if st.button("🔄 Refresh", key="refresh_feedback"):
+        if st.button("🔄 Refresh", key="refresh_feedback", use_container_width=True):
             st.rerun()
     with col3:
         auto_refresh = st.checkbox("Auto-refresh", value=False)
@@ -45,25 +49,22 @@ def render_feedback_panel(session_id: str):
         revision_count = session_data.get("revision_count", 0)
         max_revisions = session_data.get("max_revisions", 3)
 
-        # Status indicator
-        status_colors = {
-            "pending": ("🔵", "Pending"),
-            "in_progress": ("🟡", "In Progress"),
-            "awaiting_human": ("🟠", "Awaiting Human Approval"),
-            "completed": ("🟢", "Completed"),
-            "failed": ("🔴", "Failed"),
-            "cancelled": ("⚫", "Cancelled")
-        }
-        status_icon, status_text = status_colors.get(status, ("⚪", status))
-        
-        st.info(f"{status_icon} **Status:** {status_text}")
+        # Status indicator with SLDS pill
+        render_slds_card()
+        st.markdown("**Current Status:**")
+        render_status_pill(status)
+        st.markdown("<br>", unsafe_allow_html=True)
         
         if current_agent:
-            st.caption(f"📍 Current Agent: **{current_agent.replace('_', ' ').title()}**")
+            st.write(f"📍 **Current Agent:** {current_agent.replace('_', ' ').title()}")
+        
+        close_slds_card()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
 
         # Display messages
         if messages:
-            st.subheader("📝 Agent Messages")
+            render_slds_card("📝 Agent Messages")
 
             for idx, message in enumerate(messages):
                 agent_role = message.get("agent_role", "unknown")
@@ -98,26 +99,35 @@ def render_feedback_panel(session_id: str):
                         with st.container():
                             st.caption("**Metadata:**")
                             st.json(metadata)
+            
+            close_slds_card()
         else:
             st.info("No agent messages yet. Workflow starting...")
+            close_slds_card()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
 
         # Display reviews
         if reviews:
-            st.divider()
-            st.subheader("🔍 Review Feedback")
+            render_slds_card("🔍 Review Feedback")
 
             for review in reviews:
                 _render_review_card(review)
+            
+            close_slds_card()
         else:
             st.info("No reviews yet. Waiting for reviewers...")
+            close_slds_card()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
 
         # Display revision status
         if revision_count > 0:
-            st.divider()
-            st.subheader("🔄 Revision Status")
+            render_slds_card("🔄 Revision Status")
             progress = revision_count / max_revisions
             st.progress(progress)
             st.write(f"**Revisions:** {revision_count} / {max_revisions}")
+            close_slds_card()
 
         # Auto-refresh logic
         if auto_refresh and status == "in_progress":

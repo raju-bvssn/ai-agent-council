@@ -1,0 +1,31 @@
+# Streamlit Configuration
+# Salesforce Lightning Design System Inspired Theme
+
+[theme]
+# Use light base for professional Salesforce look
+base = "light"
+
+# Salesforce Lightning Blue
+primaryColor = "#0176D3"
+
+# Clean white background
+backgroundColor = "#FFFFFF"
+
+# Lightning grey for secondary backgrounds
+secondaryBackgroundColor = "#F4F6F9"
+
+# Dark text for readability
+textColor = "#1A1A1A"
+
+# System font stack
+font = "sans serif"
+
+[server]
+# Enable CORS for development
+enableCORS = true
+enableXsrfProtection = true
+
+[browser]
+# Gather usage stats
+gatherUsageStats = false
+

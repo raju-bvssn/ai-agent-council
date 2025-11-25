@@ -7,6 +7,7 @@ Allows users to create new council sessions with name, description, and requirem
 import streamlit as st
 
 from app.ui.api_client import get_api_client
+from app.ui.styles import close_slds_card, render_slds_card, render_status_pill
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -22,7 +23,12 @@ def render_council_setup():
     - Add context information
     - Create new session
     """
-    st.header("🏛️ Create Agent Council Session")
+    st.markdown("# 🏛️ Create Agent Council Session")
+    st.caption("Start a new multi-agent design collaboration")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    render_slds_card("Session Configuration")
 
     with st.form("council_setup_form"):
         # Session metadata
@@ -122,6 +128,8 @@ def render_council_setup():
             except Exception as e:
                 st.error(f"❌ Failed to create session: {str(e)}")
                 logger.error("ui_session_creation_failed", error=str(e))
+    
+    close_slds_card()
 
 
 def render_session_list():
@@ -133,7 +141,8 @@ def render_session_list():
     - Load an existing session
     - Delete sessions
     """
-    st.subheader("📋 Recent Sessions")
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    render_slds_card("📋 Recent Sessions")
 
     try:
         api_client = get_api_client()
@@ -149,18 +158,9 @@ def render_session_list():
             name = session.get('name', 'Untitled')
             status = session.get('status', 'unknown')
             
-            # Status badge color
-            status_colors = {
-                "pending": "🔵",
-                "in_progress": "🟡",
-                "awaiting_human": "🟠",
-                "completed": "🟢",
-                "failed": "🔴",
-                "cancelled": "⚫"
-            }
-            status_badge = status_colors.get(status, "⚪")
-            
-            with st.expander(f"{status_badge} {name} - {session_id[:8]}..."):
+            with st.expander(f"{name} - {session_id[:8]}...", expanded=False):
+                # Render status pill
+                render_status_pill(status)
                 st.write(f"**Status:** {status}")
                 st.write(f"**Created:** {session.get('created_at', 'N/A')}")
                 st.write(f"**Updated:** {session.get('updated_at', 'N/A')}")
@@ -199,4 +199,6 @@ def render_session_list():
     except Exception as e:
         st.error(f"Failed to load sessions: {str(e)}")
         logger.error("ui_session_list_failed", error=str(e))
+    
+    close_slds_card()
 

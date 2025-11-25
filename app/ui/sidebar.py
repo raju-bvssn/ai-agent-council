@@ -21,18 +21,19 @@ def render_sidebar():
     Render sidebar with navigation and admin tools.
     """
     with st.sidebar:
-        st.title("🏛️ Agent Council")
-        st.markdown("---")
+        st.markdown("# ☁️ Agent Council")
+        st.caption("Multi-Agent Solution Design System")
+        st.markdown("<br>", unsafe_allow_html=True)
         
         # Navigation
         render_navigation()
         
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
         
         # Session Management
         render_session_management()
         
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
         
         # Admin Tools (Prototype)
         render_admin_panel()
@@ -42,14 +43,14 @@ def render_navigation():
     """
     Render navigation menu.
     """
-    st.subheader("📍 Navigation")
+    st.markdown("### 📍 Navigation")
     
-    # Navigation buttons
-    if st.button("🏠 Home", use_container_width=True):
+    # Navigation buttons with icons
+    if st.button("🏠  Home", use_container_width=True, key="nav_home"):
         st.session_state.page = "council_setup"
         st.rerun()
     
-    if st.button("📋 Active Sessions", use_container_width=True):
+    if st.button("📂  Active Sessions", use_container_width=True, key="nav_sessions"):
         st.session_state.page = "session_list"
         st.rerun()
 
@@ -58,20 +59,20 @@ def render_session_management():
     """
     Render current session information.
     """
-    st.subheader("💼 Current Session")
+    st.markdown("### 💼 Current Session")
     
     session_id = st.session_state.get("current_session_id")
     
     if session_id:
-        st.success(f"**Session ID:**")
-        st.code(session_id, language=None)
+        st.success("✓ Active Session")
+        st.code(session_id[:12] + "...", language=None)
         
         # Option to clear current session
-        if st.button("🔄 New Session", use_container_width=True):
+        if st.button("🔄  New Session", use_container_width=True, key="new_session"):
             # Clear session state
             st.session_state.current_session_id = None
             st.session_state.page = "council_setup"
-            st.success("Session cleared. Starting new session.")
+            st.success("Session cleared")
             st.rerun()
     else:
         st.info("No active session")
@@ -84,7 +85,7 @@ def render_admin_panel():
     **WARNING**: These tools are for POC/demo purposes only.
     In production, these should be properly secured.
     """
-    st.subheader("⚙️ Prototype Tools")
+    st.markdown("### 🧪 Prototype Tools")
     st.caption("⚠️ Admin functions for POC/demo")
     
     # Initialize API client

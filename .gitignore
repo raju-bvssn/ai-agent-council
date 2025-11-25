@@ -58,7 +58,8 @@ htmlcov/
 logs/
 
 # Streamlit
-.streamlit/
+.streamlit/secrets.toml
+.streamlit/credentials.toml
 
 # Jupyter
 .ipynb_checkpoints/

@@ -8,6 +8,7 @@ import streamlit as st
 
 from app.ui.main_view import render_main_view
 from app.ui.sidebar import render_sidebar
+from app.ui.styles import inject_slds_theme
 from app.utils.logging import configure_logging, get_logger
 from app.utils.settings import get_settings
 
@@ -23,20 +24,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for dark theme
-st.markdown("""
-<style>
-    .stApp {
-        background-color: #0e1117;
-    }
-    .stButton>button {
-        width: 100%;
-    }
-    .stExpander {
-        background-color: #1e2130;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Inject Salesforce Lightning Design System theme
+inject_slds_theme()
 
 
 def initialize_session_state():

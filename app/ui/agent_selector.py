@@ -9,6 +9,7 @@ import time
 
 from app.graph.state_models import AgentRole
 from app.ui.api_client import get_api_client
+from app.ui.styles import close_slds_card, render_slds_card
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -65,7 +66,10 @@ def render_agent_selector():
     - View agent descriptions
     - Configure agent parameters
     """
-    st.header("🤖 Configure Agent Council")
+    st.markdown("# 🤖 Configure Agent Council")
+    st.caption("Select specialized agents for your design session")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # Check if we have a session
     if "current_session_id" not in st.session_state:
@@ -77,8 +81,10 @@ def render_agent_selector():
 
     session_id = st.session_state.current_session_id
     st.info(f"**Session ID:** `{session_id[:16]}...`")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    st.subheader("Select Agents")
+    render_slds_card("Agent Selection")
     st.write("Choose which specialized agents should participate in this council:")
 
     # Initialize selected agents in session state
@@ -120,16 +126,22 @@ def render_agent_selector():
                         st.session_state.selected_agents.remove(role)
 
                 st.divider()
+    
+    close_slds_card()
+    
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # Summary
-    st.subheader("📊 Council Summary")
+    render_slds_card("📊 Council Summary")
     st.write(f"**Selected Agents:** {len(st.session_state.selected_agents)}")
 
     agent_names = [AGENT_INFO[role]['name'] for role in st.session_state.selected_agents]
     st.write(", ".join(agent_names))
+    
+    close_slds_card()
 
     # Action buttons
-    st.divider()
+    st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col1:
