@@ -5,7 +5,7 @@ Defines the workflow graph with nodes, edges, and conditional routing.
 """
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from langgraph.graph import END, StateGraph
 
