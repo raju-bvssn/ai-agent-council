@@ -53,6 +53,7 @@ class AgentMessage(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     content: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+    tool_results: list[dict[str, Any]] = Field(default_factory=list)  # Results from tool invocations
 
 
 class ReviewFeedback(BaseModel):
@@ -137,13 +138,14 @@ class WorkflowState(BaseModel):
     # Metadata
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def add_message(self, agent_role: AgentRole, content: str, **metadata) -> None:
-        """Add agent message to state."""
+    def add_message(self, agent_role: AgentRole, content: str, tool_results: Optional[list] = None, **metadata) -> None:
+        """Add agent message to state with optional tool results."""
         self.messages.append(
             AgentMessage(
                 agent_role=agent_role,
                 content=content,
-                metadata=metadata
+                metadata=metadata,
+                tool_results=tool_results or []
             )
         )
         self.updated_at = datetime.utcnow()

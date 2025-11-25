@@ -54,11 +54,13 @@ def master_architect_node(state: WorkflowState) -> dict[str, Any]:
     )
     output = agent.run(agent_input)
 
-    # Update state
+    # Update state with tool results
+    tool_results = output.metadata.get("tool_results", []) if output.metadata else []
     state.add_message(
         agent_role=AgentRole.MASTER,
         content=output.content,
-        success=output.success
+        success=output.success,
+        tool_results=tool_results
     )
     state.current_agent = AgentRole.SOLUTION_ARCHITECT
     state.status = WorkflowStatus.IN_PROGRESS
@@ -109,11 +111,13 @@ def solution_architect_node(state: WorkflowState) -> dict[str, Any]:
     )
     output = agent.run(agent_input)
 
-    # Update state
+    # Update state with tool results
+    tool_results = output.metadata.get("tool_results", []) if output.metadata else []
     state.add_message(
         agent_role=AgentRole.SOLUTION_ARCHITECT,
         content=output.content,
-        success=output.success
+        success=output.success,
+        tool_results=tool_results
     )
 
     # TODO: Phase 2+ - Parse output and update current_design
@@ -168,13 +172,15 @@ def reviewer_node(state: WorkflowState, reviewer_role: AgentRole) -> dict[str, A
         severity=output.severity,
     )
 
-    # Update state
+    # Update state with tool results
+    tool_results = output.tool_results if hasattr(output, 'tool_results') else []
     state.add_review(review)
     state.add_message(
         agent_role=reviewer_role,
         content=output.rationale,
         success=output.success,
-        decision=output.decision.value
+        decision=output.decision.value,
+        tool_results=tool_results
     )
 
     # Persist state

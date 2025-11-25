@@ -53,51 +53,65 @@ graph TD
 - Questions for clarification
 - Areas requiring specialist review
 
-### Phase 2: Design Creation
+### Phase 2: Design Creation (Tool-Augmented)
 
 **Solution Architect Node**
+- Invokes tools before design creation:
+  - **Vibes**: Recommends integration patterns based on requirements
+  - **MCP Server**: Fetches environment info and available policies
+  - **Lucid AI**: Generates architecture diagrams from descriptions
 - Creates comprehensive design document
+- Incorporates tool insights into design reasoning
 - Considers requirements from Master Architect
 - Incorporates feedback from previous revisions (if any)
-- Generates initial architecture
 
 **Input:**
 - Master Architect analysis
 - Previous review feedback (if revision)
 - User context
 
+**Tool Invocations:**
+- Vibes: `recommend_patterns(description)`
+- MCP: `get_environment_info(env_id)`, `list_policies(env_id)`
+- Lucid: `generate_architecture(description)` (if design_description provided)
+
 **Output:**
 - Design document with:
-  - Architecture overview
+  - Architecture overview (augmented with tool recommendations)
   - Components and responsibilities
-  - Integration points
+  - Integration points (validated against platform metadata)
   - NFR considerations
-  - Security considerations
+  - Security considerations (informed by available policies)
   - Deployment strategy
+  - Diagrams (generated via Lucid)
+- Tool results metadata for transparency
 
-### Phase 3: Specialized Review
+### Phase 3: Specialized Review (Tool-Augmented)
 
 **Reviewer Nodes (Parallel)**
 
-The following reviewers evaluate the design concurrently:
+The following reviewers evaluate the design concurrently, each using specialized tools:
 
 1. **NFR/Performance Reviewer**
-   - Performance bottlenecks
-   - Scalability concerns
-   - Governor limits compliance
-   - Caching strategies
-   - Resource optimization
+   - **Tools Used**: MCP (runtime info), NotebookLM (evidence-based analysis)
+   - Evaluates performance bottlenecks
+   - Analyzes scalability concerns with actual platform capacity
+   - Validates Governor limits compliance
+   - Reviews caching strategies
+   - Assesses resource optimization against deployment config
 
 2. **Security Reviewer**
-   - Authentication and authorization
-   - Data encryption
-   - API security
-   - Compliance requirements
-   - Security best practices
+   - **Tools Used**: MCP (policy list), Vibes (best practices), NotebookLM (verification)
+   - Validates authentication and authorization against available policies
+   - Reviews data encryption implementation
+   - Analyzes API security with platform-specific context
+   - Verifies compliance requirements
+   - Cross-checks security best practices with Vibes recommendations
 
 3. **Integration Reviewer**
-   - API design and patterns
-   - Error handling
+   - **Tools Used**: Vibes (error handling), MCP (API metadata), NotebookLM (pattern analysis)
+   - Evaluates API design and patterns against MuleSoft best practices
+   - Validates error handling strategies with Vibes
    - Data transformation
    - Integration resilience
    - Monitoring strategies
@@ -338,13 +352,49 @@ This ensures:
 - Real-time status updates available
 - Workflow resumable after interruption
 
-## Phase 3 Enhancements
+## Phase 3A: Tool Integration (Completed)
+
+### Tool-Augmented Agent Architecture
+
+All agents now have access to external tools for enhanced reasoning:
+
+**Tool Execution Pattern:**
+1. Agent receives task with `allowed_tools` configuration
+2. Before generating response, agent invokes relevant tools asynchronously
+3. Tool results are formatted and injected into agent prompt context
+4. Agent generates reasoning that incorporates tool insights
+5. Tool results are attached to agent messages in workflow state
+6. Tool results flow through state machine for full traceability
+
+**Available Tools:**
+- **Vibes**: MuleSoft best practices (pattern recommendations, error handling, NFR validation)
+- **MCP Server**: Platform metadata (environments, APIs, policies, runtime config)
+- **Lucid AI**: Diagram generation (architecture, sequence, data flow, integration)
+- **Gemini**: Long-context reasoning (summarization, structured analysis, insight extraction)
+- **NotebookLM**: Grounded analysis (cited summaries, evidence-based Q&A, claim verification)
+
+**Benefits:**
+- Agents no longer hallucinate platform-specific details
+- Recommendations grounded in actual environment configuration
+- Diagrams auto-generated from design descriptions
+- Reviews backed by evidence from source documents
+- FAQ Agent can cite specific sources for rationale
+
+**State Model Updates:**
+- `AgentMessage.tool_results`: List of tool invocation results
+- `WorkflowState.add_message()`: Now accepts `tool_results` parameter
+- Node definitions updated to pass tool results through workflow
+
+## Phase 3B: Future Enhancements
 
 - [ ] Implement streaming updates for UI (WebSocket/SSE)
 - [ ] Add LangGraph checkpointing for better pause/resume
 - [ ] Implement workflow branching for alternative designs
 - [ ] Add workflow templates
-- [ ] Integrate tool APIs (Vibes, MCP, Lucid, NotebookLM)
+- [ ] ✅ Integrate tool APIs (Vibes, MCP, Lucid, NotebookLM) - **COMPLETED**
 - [ ] Add workflow analytics and metrics
 - [ ] Implement workflow versioning
+- [ ] Add tool result visualization in UI
+- [ ] Implement tool caching for repeated queries
+- [ ] Add tool usage analytics and cost tracking
 

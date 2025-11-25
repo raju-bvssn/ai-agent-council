@@ -85,11 +85,40 @@ graph TB
 
 ### 3. Domain Layer
 
-**Agents**
-- Master Architect: Coordinates council and synthesizes results
-- Solution Architect: Creates and updates design documents
-- Reviewer Agents: Specialized critics (NFR, Security, Integration, etc.)
-- FAQ Agent: Generates documentation and rationale
+**Agents (Tool-Augmented)**
+
+All agents now have tool integration capabilities:
+
+- **Master Architect**: 
+  - Coordinates council and synthesizes results
+  - Uses: Gemini, NotebookLM
+
+- **Solution Architect**: 
+  - Creates and updates design documents
+  - Uses: Gemini, Vibes (pattern recommendations), MCP (platform metadata), Lucid (diagrams)
+
+- **NFR/Performance Reviewer**: 
+  - Reviews performance and scalability
+  - Uses: Gemini, MCP (runtime info), NotebookLM (evidence-based analysis)
+
+- **Security Reviewer**: 
+  - Reviews security and compliance
+  - Uses: Gemini, MCP (policies), Vibes (best practices), NotebookLM (verification)
+
+- **Integration Reviewer**: 
+  - Reviews integration architecture
+  - Uses: Gemini, Vibes (error handling), MCP (API metadata), NotebookLM (pattern analysis)
+
+- **FAQ Agent**: 
+  - Generates documentation and rationale
+  - Uses: Gemini, NotebookLM (grounded summaries)
+
+**Agent-Tool Integration Pattern**:
+1. Agent receives task with allowed_tools list
+2. Agent invokes tools asynchronously before reasoning
+3. Tool results are formatted and included in agent prompt
+4. Agent produces reasoning augmented with tool insights
+5. Tool results are passed through workflow state for transparency
 
 **LangGraph Workflow**
 - Node definitions for each workflow step
@@ -111,11 +140,47 @@ graph TB
 - Retry logic and rate limiting
 - JSON mode support
 
-**External Tools**
-- MuleSoft Vibes: Code generation and validation
-- MCP Server: Platform metadata retrieval
-- NotebookLM: Summarization and evidence extraction
-- Lucid AI: Diagram generation
+**External Tools (Phase 3A - Integrated)**
+
+The system now includes a comprehensive tool integration layer:
+
+- **MuleSoft Vibes**: 
+  - API specification validation (RAML/OAS)
+  - Best practice recommendations
+  - Error handling pattern analysis
+  - NFR validation
+
+- **MCP Server** (MuleSoft Control Plane):
+  - Environment configuration retrieval
+  - API Manager metadata
+  - Policy management
+  - Runtime Fabric / CloudHub info
+  - Client application registry
+
+- **Lucid AI**:
+  - Architecture diagram generation (Mermaid format)
+  - Sequence diagram creation
+  - Data flow visualization
+  - Integration flow diagrams
+
+- **Google Gemini**:
+  - Long-context reasoning (1M+ tokens)
+  - Structured analysis with JSON mode
+  - Multi-modal understanding
+  - Safety-wrapped generation
+
+- **NotebookLM** (Simulated):
+  - Grounded summaries with citations
+  - Evidence-based question answering
+  - Multi-document synthesis
+  - Claim verification against sources
+
+**Tool Integration Architecture**:
+- BaseTool: Abstract base with timeout/retry protection
+- ToolResult: Standardized response format
+- Tool Registry: Centralized tool management
+- Async execution: Non-blocking tool invocation
+- Agent-tool binding: Agents specify allowed tools
 
 **Persistence**
 - SQLite database for session storage

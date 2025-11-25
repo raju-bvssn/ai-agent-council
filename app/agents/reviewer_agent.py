@@ -9,12 +9,14 @@ Specialized reviewer agents for different aspects:
 - Operations Reviewer
 """
 
+import asyncio
 import json
 from typing import Optional
 
 from app.agents.critic import CriticAgent, CriticInput, CriticOutput
 from app.graph.state_models import ReviewDecision
 from app.llm.providers import LLMProvider
+from app.tools import get_tool
 from app.utils.exceptions import AgentExecutionException
 from app.utils.logging import get_logger
 
@@ -22,14 +24,57 @@ logger = get_logger(__name__)
 
 
 class NFRPerformanceReviewer(CriticAgent):
-    """Reviewer focused on Non-Functional Requirements and Performance."""
+    """Reviewer focused on Non-Functional Requirements and Performance with tool augmentation."""
 
-    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None, allowed_tools: Optional[list] = None):
         """Initialize NFR/Performance Reviewer."""
         super().__init__(
             llm_provider=llm_provider,
-            agent_name="NFRPerformanceReviewer"
+            agent_name="NFRPerformanceReviewer",
+            allowed_tools=allowed_tools or ["gemini", "mcp", "notebooklm"]
         )
+    
+    async def _invoke_tools_for_review(self, content: str, context: dict) -> list:
+        """Invoke tools for NFR review."""
+        tool_results = []
+        
+        # Use MCP to get runtime and deployment info
+        if "mcp" in self.allowed_tools:
+            try:
+                mcp_tool = get_tool("mcp")
+                
+                runtime_result = await mcp_tool.execute(
+                    operation="get_runtime_info",
+                    parameters={"runtime_id": context.get("runtime_id", "rtf-prod-001")}
+                )
+                tool_results.append(runtime_result)
+                
+                logger.info("nfr_reviewer_mcp_invoked", success=runtime_result.success)
+            except Exception as e:
+                logger.warning("nfr_reviewer_mcp_failed", error=str(e))
+        
+        # Use NotebookLM to analyze design for performance patterns
+        if "notebooklm" in self.allowed_tools and content:
+            try:
+                notebooklm_tool = get_tool("notebooklm")
+                
+                result = await notebooklm_tool.execute(
+                    operation="answer_questions",
+                    parameters={
+                        "text": content,
+                        "questions": [
+                            "What are the potential performance bottlenecks?",
+                            "How does the design handle scale?",
+                            "Are Salesforce governor limits addressed?"
+                        ]
+                    }
+                )
+                tool_results.append(result)
+                logger.info("nfr_reviewer_notebooklm_invoked", success=result.success)
+            except Exception as e:
+                logger.warning("nfr_reviewer_notebooklm_failed", error=str(e))
+        
+        return tool_results
 
     def get_system_prompt(self) -> str:
         """Get system prompt for NFR/Performance Reviewer."""
@@ -48,12 +93,27 @@ Review designs for performance bottlenecks and scalability concerns.
 """
 
     def run(self, input_data: CriticInput) -> CriticOutput:
-        """Execute NFR/Performance review."""
+        """Execute NFR/Performance review with tool augmentation."""
         try:
             logger.info("nfr_performance_review_started")
+            
+            # Invoke tools for augmented review
+            tool_results = asyncio.run(self._invoke_tools_for_review(
+                content=input_data.content_to_review,
+                context=input_data.context
+            ))
+            
+            # Format tool results for context
+            tool_context = ""
+            if tool_results:
+                tool_context = "\n\n**Tool-Augmented Context:**\n"
+                for result in tool_results:
+                    if result.success:
+                        tool_context += f"- {result.tool_name}: {result.summary}\n"
 
-            review_criteria = """
+            review_criteria = f"""
 **Performance & NFR Review Criteria:**
+{tool_context}
 
 Analyze the design and provide structured feedback on:
 
@@ -99,7 +159,7 @@ Provide specific, actionable feedback.
 
             response = json.loads(response_text)
 
-            logger.info("nfr_performance_review_completed", decision=response.get("decision"))
+            logger.info("nfr_performance_review_completed", decision=response.get("decision"), tools_used=len(tool_results))
 
             return CriticOutput(
                 decision=ReviewDecision(response.get("decision", "approve")),
@@ -107,7 +167,8 @@ Provide specific, actionable feedback.
                 suggestions=response.get("suggestions", []),
                 rationale=response.get("rationale", "No issues found"),
                 severity=response.get("severity", "medium"),
-                success=True
+                success=True,
+                tool_results=[r.dict() for r in tool_results]
             )
 
         except Exception as e:
@@ -119,14 +180,57 @@ Provide specific, actionable feedback.
 
 
 class SecurityReviewer(CriticAgent):
-    """Reviewer focused on Security considerations."""
+    """Reviewer focused on Security considerations with tool augmentation."""
 
-    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None, allowed_tools: Optional[list] = None):
         """Initialize Security Reviewer."""
         super().__init__(
             llm_provider=llm_provider,
-            agent_name="SecurityReviewer"
+            agent_name="SecurityReviewer",
+            allowed_tools=allowed_tools or ["gemini", "mcp", "vibes", "notebooklm"]
         )
+    
+    async def _invoke_tools_for_review(self, content: str, context: dict) -> list:
+        """Invoke tools for Security review."""
+        tool_results = []
+        
+        # Use MCP to get environment policies
+        if "mcp" in self.allowed_tools:
+            try:
+                mcp_tool = get_tool("mcp")
+                
+                policy_result = await mcp_tool.execute(
+                    operation="list_policies",
+                    parameters={"env_id": context.get("env_id", "prod-env-001")}
+                )
+                tool_results.append(policy_result)
+                
+                logger.info("security_reviewer_mcp_invoked", success=policy_result.success)
+            except Exception as e:
+                logger.warning("security_reviewer_mcp_failed", error=str(e))
+        
+        # Use NotebookLM to analyze design for security patterns
+        if "notebooklm" in self.allowed_tools and content:
+            try:
+                notebooklm_tool = get_tool("notebooklm")
+                
+                result = await notebooklm_tool.execute(
+                    operation="answer_questions",
+                    parameters={
+                        "text": content,
+                        "questions": [
+                            "What authentication and authorization mechanisms are used?",
+                            "How is sensitive data protected?",
+                            "Are there any security vulnerabilities?"
+                        ]
+                    }
+                )
+                tool_results.append(result)
+                logger.info("security_reviewer_notebooklm_invoked", success=result.success)
+            except Exception as e:
+                logger.warning("security_reviewer_notebooklm_failed", error=str(e))
+        
+        return tool_results
 
     def get_system_prompt(self) -> str:
         """Get system prompt for Security Reviewer."""
@@ -146,12 +250,27 @@ Review designs for security vulnerabilities and compliance gaps.
 """
 
     def run(self, input_data: CriticInput) -> CriticOutput:
-        """Execute Security review."""
+        """Execute Security review with tool augmentation."""
         try:
             logger.info("security_review_started")
+            
+            # Invoke tools for augmented review
+            tool_results = asyncio.run(self._invoke_tools_for_review(
+                content=input_data.content_to_review,
+                context=input_data.context
+            ))
+            
+            # Format tool results for context
+            tool_context = ""
+            if tool_results:
+                tool_context = "\n\n**Tool-Augmented Context:**\n"
+                for result in tool_results:
+                    if result.success:
+                        tool_context += f"- {result.tool_name}: {result.summary}\n"
 
-            review_criteria = """
+            review_criteria = f"""
 **Security Review Criteria:**
+{tool_context}
 
 Comprehensively analyze the design for security concerns:
 
@@ -208,7 +327,7 @@ Be thorough - security is mission-critical.
 
             response = json.loads(response_text)
 
-            logger.info("security_review_completed", decision=response.get("decision"))
+            logger.info("security_review_completed", decision=response.get("decision"), tools_used=len(tool_results))
 
             return CriticOutput(
                 decision=ReviewDecision(response.get("decision", "approve")),
@@ -216,7 +335,8 @@ Be thorough - security is mission-critical.
                 suggestions=response.get("suggestions", []),
                 rationale=response.get("rationale", "Security posture acceptable"),
                 severity=response.get("severity", "medium"),
-                success=True
+                success=True,
+                tool_results=[r.dict() for r in tool_results]
             )
 
         except Exception as e:
@@ -228,14 +348,73 @@ Be thorough - security is mission-critical.
 
 
 class IntegrationReviewer(CriticAgent):
-    """Reviewer focused on Integration architecture."""
+    """Reviewer focused on Integration architecture with tool augmentation."""
 
-    def __init__(self, llm_provider: Optional[LLMProvider] = None):
+    def __init__(self, llm_provider: Optional[LLMProvider] = None, allowed_tools: Optional[list] = None):
         """Initialize Integration Reviewer."""
         super().__init__(
             llm_provider=llm_provider,
-            agent_name="IntegrationReviewer"
+            agent_name="IntegrationReviewer",
+            allowed_tools=allowed_tools or ["gemini", "vibes", "mcp", "notebooklm"]
         )
+    
+    async def _invoke_tools_for_review(self, content: str, context: dict) -> list:
+        """Invoke tools for Integration review."""
+        tool_results = []
+        
+        # Use Vibes for integration pattern analysis
+        if "vibes" in self.allowed_tools and content:
+            try:
+                vibes_tool = get_tool("vibes")
+                
+                # Review error handling
+                error_result = await vibes_tool.execute(
+                    operation="review_error_handling",
+                    parameters={"design": content}
+                )
+                tool_results.append(error_result)
+                
+                logger.info("integration_reviewer_vibes_invoked", success=error_result.success)
+            except Exception as e:
+                logger.warning("integration_reviewer_vibes_failed", error=str(e))
+        
+        # Use MCP to get API metadata
+        if "mcp" in self.allowed_tools:
+            try:
+                mcp_tool = get_tool("mcp")
+                
+                api_result = await mcp_tool.execute(
+                    operation="get_api_metadata",
+                    parameters={"api_id": context.get("api_id", "customer-api-v1")}
+                )
+                tool_results.append(api_result)
+                
+                logger.info("integration_reviewer_mcp_invoked", success=api_result.success)
+            except Exception as e:
+                logger.warning("integration_reviewer_mcp_failed", error=str(e))
+        
+        # Use NotebookLM to analyze integration patterns
+        if "notebooklm" in self.allowed_tools and content:
+            try:
+                notebooklm_tool = get_tool("notebooklm")
+                
+                result = await notebooklm_tool.execute(
+                    operation="answer_questions",
+                    parameters={
+                        "text": content,
+                        "questions": [
+                            "What integration patterns are used?",
+                            "How are errors handled in integrations?",
+                            "Are retry and circuit breaker patterns implemented?"
+                        ]
+                    }
+                )
+                tool_results.append(result)
+                logger.info("integration_reviewer_notebooklm_invoked", success=result.success)
+            except Exception as e:
+                logger.warning("integration_reviewer_notebooklm_failed", error=str(e))
+        
+        return tool_results
 
     def get_system_prompt(self) -> str:
         """Get system prompt for Integration Reviewer."""
@@ -255,12 +434,27 @@ Review designs for integration complexity and reliability.
 """
 
     def run(self, input_data: CriticInput) -> CriticOutput:
-        """Execute Integration review."""
+        """Execute Integration review with tool augmentation."""
         try:
             logger.info("integration_review_started")
+            
+            # Invoke tools for augmented review
+            tool_results = asyncio.run(self._invoke_tools_for_review(
+                content=input_data.content_to_review,
+                context=input_data.context
+            ))
+            
+            # Format tool results for context
+            tool_context = ""
+            if tool_results:
+                tool_context = "\n\n**Tool-Augmented Context:**\n"
+                for result in tool_results:
+                    if result.success:
+                        tool_context += f"- {result.tool_name}: {result.summary}\n"
 
-            review_criteria = """
+            review_criteria = f"""
 **Integration Architecture Review Criteria:**
+{tool_context}
 
 Evaluate all integration aspects comprehensively:
 
@@ -328,7 +522,7 @@ Focus on integration reliability and maintainability.
 
             response = json.loads(response_text)
 
-            logger.info("integration_review_completed", decision=response.get("decision"))
+            logger.info("integration_review_completed", decision=response.get("decision"), tools_used=len(tool_results))
 
             return CriticOutput(
                 decision=ReviewDecision(response.get("decision", "approve")),
@@ -336,7 +530,8 @@ Focus on integration reliability and maintainability.
                 suggestions=response.get("suggestions", []),
                 rationale=response.get("rationale", "Integration design acceptable"),
                 severity=response.get("severity", "medium"),
-                success=True
+                success=True,
+                tool_results=[r.dict() for r in tool_results]
             )
 
         except Exception as e:
