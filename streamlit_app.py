@@ -69,7 +69,11 @@ def main():
     """Main application entry point."""
     settings = get_settings()
 
-    logger.info("streamlit_app_started", env=settings.env)
+    try:
+        logger.info("streamlit_app_started", env=settings.env)
+    except Exception as e:
+        # Fallback if logging fails - don't crash the app
+        print(f"Streamlit app started (logging error: {e})")
 
     # Initialize session state
     initialize_session_state()

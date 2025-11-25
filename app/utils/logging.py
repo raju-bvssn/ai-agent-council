@@ -89,28 +89,34 @@ def configure_logging() -> None:
         level=settings.log_level.upper(),
     )
 
-    # Configure structlog
-    structlog.configure(
-        processors=[
-            filter_by_level,
-            add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            add_redaction,  # Custom redaction processor
-            JSONRenderer(),
-        ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            logging.getLevelName(settings.log_level.upper())
-        ),
-        context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(),
-        cache_logger_on_first_use=True,
-    )
+    # Configure structlog with Streamlit-compatible processors
+    try:
+        structlog.configure(
+            processors=[
+                structlog.stdlib.add_log_level,
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.contextvars.merge_contextvars,
+                structlog.processors.StackInfoRenderer(),
+                structlog.processors.format_exc_info,
+                add_redaction,  # Custom redaction processor
+                JSONRenderer(),
+            ],
+            wrapper_class=structlog.stdlib.BoundLogger,
+            context_class=dict,
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            cache_logger_on_first_use=True,
+        )
+    except Exception as e:
+        # Fallback to simple configuration if structlog setup fails
+        print(f"Warning: Advanced logging configuration failed, using simple logging: {e}")
+        logging.basicConfig(
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            stream=sys.stdout,
+            level=settings.log_level.upper(),
+        )
 
 
-def get_logger(name: str) -> structlog.BoundLogger:
+def get_logger(name: str) -> Any:
     """
     Get a configured logger instance.
 
@@ -118,7 +124,11 @@ def get_logger(name: str) -> structlog.BoundLogger:
         name: Logger name (typically __name__ of the module)
 
     Returns:
-        Configured structlog logger
+        Configured structlog logger or standard Python logger as fallback
     """
-    return structlog.get_logger(name)
+    try:
+        return structlog.get_logger(name)
+    except Exception:
+        # Fallback to standard library logger if structlog fails
+        return logging.getLogger(name)
 
