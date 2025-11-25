@@ -6,7 +6,9 @@ Allows users to create new council sessions with name, description, and requirem
 
 import streamlit as st
 
+from app.agents.suggestion_engine import suggest_roles
 from app.ui.api_client import get_api_client
+from app.ui.components import render_add_custom_role, render_agent_suggestions
 from app.ui.styles import close_slds_card, render_slds_card, render_status_pill
 from app.utils.logging import get_logger
 
@@ -30,106 +32,108 @@ def render_council_setup():
     
     render_slds_card("Session Configuration")
 
-    with st.form("council_setup_form"):
-        # Session metadata
-        st.subheader("Session Information")
-        session_name = st.text_input(
-            "Session Name",
-            placeholder="e.g., Customer Portal Integration Design",
-            help="Give your session a meaningful name"
-        )
+    # Session name (required)
+    session_name = st.text_input(
+        "Session Name *",
+        placeholder="e.g., Customer Portal Integration Design",
+        help="Give your session a meaningful name",
+        key="session_name_input"
+    )
 
-        session_description = st.text_area(
-            "Description (Optional)",
-            placeholder="Brief description of what you're trying to accomplish",
-            height=100
-        )
-
-        # User requirements
-        st.subheader("Requirements")
-        user_request = st.text_area(
-            "What do you need the Agent Council to help you design?",
-            placeholder="Describe your requirements, challenges, or questions...",
-            height=200,
-            help="Provide as much detail as possible for better results"
-        )
-
-        # Context information
-        st.subheader("Additional Context (Optional)")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            industry = st.text_input("Industry", placeholder="e.g., Healthcare, Finance")
-            org_size = st.selectbox(
-                "Organization Size",
-                ["Small (< 100 users)", "Medium (100-1000 users)", "Large (> 1000 users)", "Enterprise"]
-            )
-
-        with col2:
-            use_case = st.text_input("Use Case", placeholder="e.g., Customer Portal, Data Integration")
-            priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"])
-
-        # Additional context
-        additional_context = st.text_area(
-            "Additional Context",
-            placeholder="Any other relevant information (constraints, preferences, existing systems, etc.)",
-            height=100
-        )
-
-        # Submit button
-        submitted = st.form_submit_button("🚀 Start Council Session", type="primary")
-
-        if submitted:
-            # Validation
-            if not user_request or len(user_request.strip()) < 10:
-                st.error("⚠️ Please provide a detailed requirement (at least 10 characters)")
-                return
-
-            try:
-                with st.spinner("Creating council session..."):
-                    # Build context
-                    context = {
-                        "industry": industry if industry else None,
-                        "org_size": org_size,
-                        "use_case": use_case if use_case else None,
-                        "priority": priority,
-                        "additional_context": additional_context if additional_context else None,
-                    }
-
-                    # Create session via API
-                    api_client = get_api_client()
-                    response = api_client.create_session(
-                        user_request=user_request.strip(),
-                        name=session_name.strip() if session_name else None,
-                        description=session_description.strip() if session_description else None,
-                        user_context=context
-                    )
-
-                    session_id = response.get("session_id")
-                    
-                    if not session_id:
-                        st.error("❌ Failed to create session: No session ID returned")
-                        return
-
-                    st.success(f"✅ Council session created successfully!")
-                    st.info(f"**Session ID:** `{session_id}`")
-
-                    # Store session ID and metadata in session state
-                    st.session_state.current_session_id = session_id
-                    st.session_state.session_name = session_name
-                    st.session_state.session_context = context
-                    st.session_state.page = "agent_selector"
-
-                    logger.info("ui_session_created", session_id=session_id, name=session_name)
-
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"❌ Failed to create session: {str(e)}")
-                logger.error("ui_session_creation_failed", error=str(e))
+    # Description/Requirements (required)
+    user_request = st.text_area(
+        "Description / Requirements *",
+        placeholder="Describe what you need the Agent Council to help you design...\n\nExample: Design a secure customer portal integration using MuleSoft that handles 10k+ transactions per day with OAuth authentication and real-time data sync.",
+        height=150,
+        help="Provide detailed requirements for AI-powered agent suggestions",
+        key="user_request_input"
+    )
     
     close_slds_card()
+
+    # AI-suggested agent roles
+    if user_request and len(user_request.strip()) > 10:
+        suggested_roles = suggest_roles(user_request)
+        render_agent_suggestions(suggested_roles)
+    else:
+        st.info("💡 Enter your requirements above to see AI-suggested agent roles")
+
+    # Add custom role component
+    render_add_custom_role()
+    
+    # Submit button (outside form for better UX)
+    st.markdown("<br>", unsafe_allow_html=True)
+    submitted = st.button("🚀 Create Session & Configure Agents", type="primary", use_container_width=True)
+
+    if submitted:
+        # Validation
+        if not session_name or len(session_name.strip()) < 3:
+            st.error("⚠️ Please provide a session name (at least 3 characters)")
+            return
+            
+        if not user_request or len(user_request.strip()) < 10:
+            st.error("⚠️ Please provide detailed requirements (at least 10 characters)")
+            return
+        
+        # Check if at least one role is selected
+        selected_roles_config = st.session_state.get("selected_roles", {})
+        if not selected_roles_config:
+            st.warning("⚠️ Please select at least one agent role for your council")
+            return
+
+        try:
+            with st.spinner("Creating council session..."):
+                # Build context with selected roles
+                context = {
+                    "selected_roles": selected_roles_config,
+                    "session_description": session_name.strip()
+                }
+
+                # Create session via API
+                api_client = get_api_client()
+                response = api_client.create_session(
+                    user_request=user_request.strip(),
+                    name=session_name.strip(),
+                    description=None,  # Not using separate description field anymore
+                    user_context=context
+                )
+
+                session_id = response.get("session_id")
+                
+                if not session_id:
+                    st.error("❌ Failed to create session: No session ID returned")
+                    return
+
+                st.success(f"✅ Council session created successfully!")
+                st.info(f"**Session ID:** `{session_id}`")
+                
+                # Show selected roles summary
+                st.markdown("**Selected Agents:**")
+                for role_config in selected_roles_config.values():
+                    st.write(f"• {role_config['name']}")
+
+                # Store session ID and metadata in session state
+                st.session_state.current_session_id = session_id
+                st.session_state.session_name = session_name
+                
+                # Navigate directly to feedback panel (skip old agent selector)
+                st.session_state.page = "feedback_panel"
+
+                logger.info(
+                    "ui_session_created",
+                    session_id=session_id,
+                    name=session_name,
+                    agent_count=len(selected_roles_config)
+                )
+
+                # Wait a moment to show success message
+                import time
+                time.sleep(1)
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"❌ Failed to create session: {str(e)}")
+            logger.error("ui_session_creation_failed", error=str(e))
 
 
 def render_session_list():
