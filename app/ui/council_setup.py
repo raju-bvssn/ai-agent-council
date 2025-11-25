@@ -6,8 +6,7 @@ Allows users to create new council sessions with name, description, and requirem
 
 import streamlit as st
 
-from app.state.session import get_session_manager
-from app.utils.exceptions import AgentCouncilException
+from app.ui.api_client import get_api_client
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -82,36 +81,45 @@ def render_council_setup():
                 return
 
             try:
-                # Build context
-                context = {
-                    "industry": industry if industry else None,
-                    "org_size": org_size,
-                    "use_case": use_case if use_case else None,
-                    "priority": priority,
-                    "additional_context": additional_context if additional_context else None,
-                }
+                with st.spinner("Creating council session..."):
+                    # Build context
+                    context = {
+                        "industry": industry if industry else None,
+                        "org_size": org_size,
+                        "use_case": use_case if use_case else None,
+                        "priority": priority,
+                        "additional_context": additional_context if additional_context else None,
+                    }
 
-                # Create session
-                session_manager = get_session_manager()
-                state = session_manager.create_session(
-                    user_request=user_request.strip(),
-                    name=session_name.strip() if session_name else None,
-                    description=session_description.strip() if session_description else None,
-                    user_context=context
-                )
+                    # Create session via API
+                    api_client = get_api_client()
+                    response = api_client.create_session(
+                        user_request=user_request.strip(),
+                        name=session_name.strip() if session_name else None,
+                        description=session_description.strip() if session_description else None,
+                        user_context=context
+                    )
 
-                st.success(f"✅ Council session created successfully!")
-                st.info(f"**Session ID:** `{state.session_id}`")
+                    session_id = response.get("session_id")
+                    
+                    if not session_id:
+                        st.error("❌ Failed to create session: No session ID returned")
+                        return
 
-                # Store session ID in session state
-                st.session_state.current_session_id = state.session_id
-                st.session_state.page = "agent_selector"
+                    st.success(f"✅ Council session created successfully!")
+                    st.info(f"**Session ID:** `{session_id}`")
 
-                logger.info("ui_session_created", session_id=state.session_id, name=session_name)
+                    # Store session ID and metadata in session state
+                    st.session_state.current_session_id = session_id
+                    st.session_state.session_name = session_name
+                    st.session_state.session_context = context
+                    st.session_state.page = "agent_selector"
 
-                st.rerun()
+                    logger.info("ui_session_created", session_id=session_id, name=session_name)
 
-            except AgentCouncilException as e:
+                    st.rerun()
+
+            except Exception as e:
                 st.error(f"❌ Failed to create session: {str(e)}")
                 logger.error("ui_session_creation_failed", error=str(e))
 
@@ -128,18 +136,34 @@ def render_session_list():
     st.subheader("📋 Recent Sessions")
 
     try:
-        session_manager = get_session_manager()
-        sessions = session_manager.list_sessions(limit=10)
+        api_client = get_api_client()
+        response = api_client.list_sessions(limit=10)
+        sessions = response.get("sessions", [])
 
         if not sessions:
             st.info("No sessions yet. Create your first council session above!")
             return
 
         for session in sessions:
-            with st.expander(f"📁 {session.get('name', 'Untitled')} - {session['session_id'][:8]}..."):
-                st.write(f"**Status:** {session['status']}")
-                st.write(f"**Created:** {session['created_at']}")
-                st.write(f"**Updated:** {session['updated_at']}")
+            session_id = session.get('session_id', '')
+            name = session.get('name', 'Untitled')
+            status = session.get('status', 'unknown')
+            
+            # Status badge color
+            status_colors = {
+                "pending": "🔵",
+                "in_progress": "🟡",
+                "awaiting_human": "🟠",
+                "completed": "🟢",
+                "failed": "🔴",
+                "cancelled": "⚫"
+            }
+            status_badge = status_colors.get(status, "⚪")
+            
+            with st.expander(f"{status_badge} {name} - {session_id[:8]}..."):
+                st.write(f"**Status:** {status}")
+                st.write(f"**Created:** {session.get('created_at', 'N/A')}")
+                st.write(f"**Updated:** {session.get('updated_at', 'N/A')}")
 
                 if session.get('description'):
                     st.write(f"**Description:** {session['description']}")
@@ -147,18 +171,32 @@ def render_session_list():
                 col1, col2 = st.columns([1, 1])
 
                 with col1:
-                    if st.button("📂 Load", key=f"load_{session['session_id']}"):
-                        st.session_state.current_session_id = session['session_id']
-                        st.session_state.page = "agent_selector"
+                    if st.button("📂 Load", key=f"load_{session_id}"):
+                        st.session_state.current_session_id = session_id
+                        st.session_state.session_name = name
+                        
+                        # Determine which page to show based on status
+                        if status in ["completed", "failed", "cancelled"]:
+                            st.session_state.page = "final_output"
+                        elif status == "awaiting_human":
+                            st.session_state.page = "approval_panel"
+                        elif status == "in_progress":
+                            st.session_state.page = "feedback_panel"
+                        else:
+                            st.session_state.page = "agent_selector"
+                        
                         st.rerun()
 
                 with col2:
-                    if st.button("🗑️ Delete", key=f"delete_{session['session_id']}"):
-                        session_manager.delete_session(session['session_id'])
-                        st.success("Session deleted")
-                        st.rerun()
+                    if st.button("🗑️ Delete", key=f"delete_{session_id}"):
+                        try:
+                            api_client.delete_session(session_id)
+                            st.success("Session deleted")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to delete: {str(e)}")
 
-    except AgentCouncilException as e:
+    except Exception as e:
         st.error(f"Failed to load sessions: {str(e)}")
         logger.error("ui_session_list_failed", error=str(e))
 

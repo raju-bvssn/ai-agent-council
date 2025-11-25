@@ -6,6 +6,7 @@ All business logic is delegated to the application layer.
 """
 
 from app.ui.agent_selector import render_agent_selector
+from app.ui.api_client import APIClient, get_api_client
 from app.ui.approval_panel import render_approval_panel
 from app.ui.council_setup import render_council_setup, render_session_list
 from app.ui.feedback_panel import render_feedback_panel
@@ -22,5 +23,7 @@ __all__ = [
     "render_feedback_panel",
     "render_approval_panel",
     "render_final_output",
+    "APIClient",
+    "get_api_client",
 ]
 

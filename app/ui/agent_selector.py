@@ -5,8 +5,10 @@ Allows users to select and configure agents for the council.
 """
 
 import streamlit as st
+import time
 
 from app.graph.state_models import AgentRole
+from app.ui.api_client import get_api_client
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -149,9 +151,35 @@ def render_agent_selector():
 
     with col3:
         if st.button("▶️ Start Council", type="primary"):
-            st.session_state.page = "workflow_execution"
-            logger.info("ui_council_started", session_id=session_id, agent_count=len(st.session_state.selected_agents))
-            st.rerun()
+            try:
+                with st.spinner("🚀 Starting workflow execution..."):
+                    api_client = get_api_client()
+                    
+                    # Execute workflow
+                    response = api_client.execute_workflow(
+                        session_id=session_id,
+                        stream=False
+                    )
+                    
+                    logger.info(
+                        "ui_workflow_started",
+                        session_id=session_id,
+                        agent_count=len(st.session_state.selected_agents)
+                    )
+                    
+                    # Check if workflow started successfully
+                    if response.get("status") in ["in_progress", "completed"]:
+                        st.success("✅ Workflow started successfully!")
+                        st.session_state.page = "feedback_panel"
+                        time.sleep(1)  # Brief pause to show success message
+                        st.rerun()
+                    else:
+                        error = response.get("error", "Unknown error")
+                        st.error(f"❌ Workflow execution failed: {error}")
+                        
+            except Exception as e:
+                st.error(f"❌ Failed to start workflow: {str(e)}")
+                logger.error("ui_workflow_start_failed", error=str(e), session_id=session_id)
 
 
 def render_suggested_agents():

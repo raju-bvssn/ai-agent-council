@@ -5,10 +5,10 @@ Displays agent feedback and allows user interaction with review results.
 """
 
 import streamlit as st
+import time
 
 from app.graph.state_models import ReviewDecision
-from app.state.session import get_session_manager
-from app.utils.exceptions import AgentCouncilException
+from app.ui.api_client import get_api_client
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -23,51 +23,127 @@ def render_feedback_panel(session_id: str):
     """
     st.header("💬 Agent Feedback & Reviews")
 
+    # Add refresh button
+    col1, col2, col3 = st.columns([3, 1, 1])
+    with col2:
+        if st.button("🔄 Refresh", key="refresh_feedback"):
+            st.rerun()
+    with col3:
+        auto_refresh = st.checkbox("Auto-refresh", value=False)
+
     try:
-        session_manager = get_session_manager()
-        state = session_manager.get_session(session_id)
+        api_client = get_api_client()
+        
+        # Get session data
+        with st.spinner("Loading session data..."):
+            session_data = api_client.get_session(session_id)
+        
+        status = session_data.get("status", "unknown")
+        messages = session_data.get("messages", [])
+        reviews = session_data.get("reviews", [])
+        current_agent = session_data.get("current_agent")
+        revision_count = session_data.get("revision_count", 0)
+        max_revisions = session_data.get("max_revisions", 3)
+
+        # Status indicator
+        status_colors = {
+            "pending": ("🔵", "Pending"),
+            "in_progress": ("🟡", "In Progress"),
+            "awaiting_human": ("🟠", "Awaiting Human Approval"),
+            "completed": ("🟢", "Completed"),
+            "failed": ("🔴", "Failed"),
+            "cancelled": ("⚫", "Cancelled")
+        }
+        status_icon, status_text = status_colors.get(status, ("⚪", status))
+        
+        st.info(f"{status_icon} **Status:** {status_text}")
+        
+        if current_agent:
+            st.caption(f"📍 Current Agent: **{current_agent.replace('_', ' ').title()}**")
 
         # Display messages
-        if state.messages:
+        if messages:
             st.subheader("📝 Agent Messages")
 
-            for message in state.messages:
+            for idx, message in enumerate(messages):
+                agent_role = message.get("agent_role", "unknown")
+                timestamp = message.get("timestamp", "")
+                content = message.get("content", "")
+                metadata = message.get("metadata", {})
+                
+                # Format timestamp
+                if timestamp:
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                        time_str = dt.strftime('%H:%M:%S')
+                    except:
+                        time_str = timestamp[:19]
+                else:
+                    time_str = "N/A"
+                
                 with st.expander(
-                    f"{_get_agent_icon(message.agent_role)} {message.agent_role.value.replace('_', ' ').title()} - "
-                    f"{message.timestamp.strftime('%H:%M:%S')}"
+                    f"{_get_agent_icon(agent_role)} {agent_role.replace('_', ' ').title()} - {time_str}",
+                    expanded=(idx == len(messages) - 1)  # Expand latest message
                 ):
-                    st.write(message.content)
+                    # Try to parse JSON content
+                    try:
+                        import json
+                        content_json = json.loads(content)
+                        st.json(content_json)
+                    except:
+                        st.write(content)
 
-                    if message.metadata:
+                    if metadata:
                         with st.container():
                             st.caption("**Metadata:**")
-                            st.json(message.metadata)
+                            st.json(metadata)
         else:
-            st.info("No agent messages yet. Workflow execution pending.")
+            st.info("No agent messages yet. Workflow starting...")
 
         # Display reviews
-        if state.reviews:
+        if reviews:
             st.divider()
             st.subheader("🔍 Review Feedback")
 
-            for review in state.reviews:
+            for review in reviews:
                 _render_review_card(review)
         else:
-            st.info("No reviews yet. Agents are still working...")
+            st.info("No reviews yet. Waiting for reviewers...")
 
         # Display revision status
-        if state.revision_count > 0:
+        if revision_count > 0:
             st.divider()
             st.subheader("🔄 Revision Status")
-            progress = state.revision_count / state.max_revisions
+            progress = revision_count / max_revisions
             st.progress(progress)
-            st.write(f"**Revisions:** {state.revision_count} / {state.max_revisions}")
+            st.write(f"**Revisions:** {revision_count} / {max_revisions}")
 
-        # Action buttons
+        # Auto-refresh logic
+        if auto_refresh and status == "in_progress":
+            time.sleep(2)
+            st.rerun()
+        
+        # Navigation based on status
         st.divider()
-        _render_action_buttons(state)
+        
+        if status == "awaiting_human":
+            st.info("🟠 **Workflow is waiting for human approval**")
+            if st.button("📋 Go to Approval Panel", type="primary"):
+                st.session_state.page = "approval_panel"
+                st.rerun()
+        elif status == "completed":
+            st.success("✅ **Workflow completed successfully!**")
+            if st.button("🎉 View Final Output", type="primary"):
+                st.session_state.page = "final_output"
+                st.rerun()
+        elif status == "failed":
+            errors = session_data.get("errors", [])
+            st.error(f"❌ **Workflow failed:** {errors[-1] if errors else 'Unknown error'}")
+        elif status == "in_progress":
+            st.info("🟡 **Workflow is running...** Enable auto-refresh to see live updates")
 
-    except AgentCouncilException as e:
+    except Exception as e:
         st.error(f"Failed to load feedback: {str(e)}")
         logger.error("ui_feedback_load_failed", error=str(e), session_id=session_id)
 
@@ -77,13 +153,13 @@ def _render_review_card(review):
     Render a single review card.
 
     Args:
-        review: ReviewFeedback object
+        review: Review dict from API
     """
     decision_colors = {
-        ReviewDecision.APPROVE: "🟢",
-        ReviewDecision.REJECT: "🔴",
-        ReviewDecision.REVISE: "🟡",
-        ReviewDecision.ESCALATE: "🟠",
+        "approve": "🟢",
+        "reject": "🔴",
+        "revise": "🟡",
+        "escalate": "🟠",
     }
 
     severity_colors = {
@@ -93,77 +169,50 @@ def _render_review_card(review):
         "critical": "🔴",
     }
 
-    color = decision_colors.get(review.decision, "⚪")
-    severity = severity_colors.get(review.severity, "⚪")
+    reviewer_role = review.get("reviewer_role", "unknown")
+    decision = review.get("decision", "unknown")
+    severity = review.get("severity", "medium")
+    rationale = review.get("rationale", "No rationale provided")
+    concerns = review.get("concerns", [])
+    suggestions = review.get("suggestions", [])
+
+    color = decision_colors.get(decision, "⚪")
+    severity_icon = severity_colors.get(severity, "⚪")
 
     with st.container():
-        st.markdown(f"### {color} {review.reviewer_role.value.replace('_', ' ').title()}")
+        st.markdown(f"### {color} {reviewer_role.replace('_', ' ').title()}")
 
         col1, col2 = st.columns([3, 1])
 
         with col1:
-            st.write(f"**Decision:** {review.decision.value.upper()}")
+            st.write(f"**Decision:** {decision.upper()}")
 
         with col2:
-            st.write(f"**Severity:** {severity} {review.severity}")
+            st.write(f"**Severity:** {severity_icon} {severity}")
 
-        st.write(f"**Rationale:** {review.rationale}")
+        st.write(f"**Rationale:** {rationale}")
 
-        if review.concerns:
+        if concerns:
             with st.expander("⚠️ Concerns"):
-                for concern in review.concerns:
+                for concern in concerns:
                     st.write(f"- {concern}")
 
-        if review.suggestions:
+        if suggestions:
             with st.expander("💡 Suggestions"):
-                for suggestion in review.suggestions:
+                for suggestion in suggestions:
                     st.write(f"- {suggestion}")
 
         st.divider()
 
 
-def _render_action_buttons(state):
-    """
-    Render action buttons for user interaction.
-
-    Args:
-        state: WorkflowState object
-    """
-    col1, col2, col3 = st.columns([1, 1, 1])
-
-    with col1:
-        if st.button("✅ Approve Design", type="primary", disabled=state.status.value != "awaiting_human"):
-            st.success("Design approved! Proceeding to finalization...")
-            # TODO: Phase 2 - Implement approval workflow
-            logger.info("ui_design_approved", session_id=state.session_id)
-
-    with col2:
-        if st.button("🔄 Request Revision", disabled=not state.can_proceed()):
-            st.warning("Requesting revision from agents...")
-            # TODO: Phase 2 - Implement revision request
-            logger.info("ui_revision_requested", session_id=state.session_id)
-
-    with col3:
-        if st.button("❌ Reject Design", disabled=state.status.value != "awaiting_human"):
-            st.error("Design rejected. Please provide feedback.")
-            # TODO: Phase 2 - Implement rejection workflow
-            logger.info("ui_design_rejected", session_id=state.session_id)
-
-    # Feedback text area
-    if state.status.value == "awaiting_human":
-        st.text_area(
-            "💬 Your Feedback (Optional)",
-            placeholder="Provide additional guidance for the council...",
-            key="human_feedback"
-        )
 
 
-def _get_agent_icon(agent_role) -> str:
+def _get_agent_icon(agent_role: str) -> str:
     """
     Get icon for agent role.
 
     Args:
-        agent_role: AgentRole enum
+        agent_role: Agent role string
 
     Returns:
         Icon emoji
@@ -179,5 +228,5 @@ def _get_agent_icon(agent_role) -> str:
         "faq": "📚",
         "human": "👤",
     }
-    return icons.get(agent_role.value, "🤖")
+    return icons.get(agent_role, "🤖")
 

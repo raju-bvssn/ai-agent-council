@@ -39,11 +39,40 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def initialize_session_state():
+    """Initialize Streamlit session state variables."""
+    if "page" not in st.session_state:
+        st.session_state.page = "council_setup"
+    
+    if "current_session_id" not in st.session_state:
+        st.session_state.current_session_id = None
+    
+    if "session_name" not in st.session_state:
+        st.session_state.session_name = None
+    
+    if "selected_agents" not in st.session_state:
+        from app.graph.state_models import AgentRole
+        st.session_state.selected_agents = [
+            AgentRole.MASTER,
+            AgentRole.SOLUTION_ARCHITECT,
+            AgentRole.REVIEWER_NFR,
+            AgentRole.REVIEWER_SECURITY,
+            AgentRole.REVIEWER_INTEGRATION,
+            AgentRole.FAQ,
+        ]
+    
+    if "workflow_running" not in st.session_state:
+        st.session_state.workflow_running = False
+
+
 def main():
     """Main application entry point."""
     settings = get_settings()
 
     logger.info("streamlit_app_started", env=settings.env)
+
+    # Initialize session state
+    initialize_session_state()
 
     # Render sidebar
     render_sidebar()
