@@ -83,6 +83,13 @@ class SessionController:
             reviews=[r.model_dump() for r in state.reviews],
             revision_count=state.revision_count,
             max_revisions=state.max_revisions,
+            current_agent=state.current_agent.value if state.current_agent else None,
+            current_design=state.current_design.model_dump() if state.current_design else None,
+            faq_entries=state.faq_entries,
+            human_approved=state.human_approved,
+            human_feedback=state.human_feedback,
+            errors=state.errors,
+            warnings=state.warnings,
             created_at=state.created_at,
             updated_at=state.updated_at,
         )

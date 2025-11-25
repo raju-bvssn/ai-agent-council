@@ -43,6 +43,13 @@ class SessionDetailResponse(SessionResponse):
     reviews: list[dict[str, Any]]
     revision_count: int
     max_revisions: int
+    current_agent: Optional[str] = None
+    current_design: Optional[dict[str, Any]] = None
+    faq_entries: list[dict[str, Any]] = Field(default_factory=list)
+    human_approved: bool = False
+    human_feedback: Optional[str] = None
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class SessionListResponse(BaseModel):
