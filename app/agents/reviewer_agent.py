@@ -52,14 +52,44 @@ Review designs for performance bottlenecks and scalability concerns.
         try:
             logger.info("nfr_performance_review_started")
 
-            # TODO: Phase 2 - Implement detailed NFR analysis
             review_criteria = """
-Evaluate the design for:
-1. Performance bottlenecks
-2. Scalability concerns
-3. Salesforce governor limits compliance
-4. Caching and optimization strategies
-5. Load handling approaches
+**Performance & NFR Review Criteria:**
+
+Analyze the design and provide structured feedback on:
+
+1. **Performance Bottlenecks:**
+   - Identify potential performance issues
+   - Database query optimization
+   - API call efficiency
+   - Rendering and UI performance
+
+2. **Scalability:**
+   - Can this handle 10x current load?
+   - Horizontal and vertical scaling considerations
+   - Resource utilization patterns
+
+3. **Salesforce Governor Limits:**
+   - SOQL query limits (100 sync, 200 async)
+   - DML statements (150 per transaction)
+   - Heap size limits (6MB sync, 12MB async)
+   - CPU time (10s sync, 60s async)
+   - API call limits
+
+4. **Caching & Optimization:**
+   - Platform cache usage
+   - Query optimization opportunities
+   - Bulk processing patterns
+   - Async processing where applicable
+
+5. **Load Handling:**
+   - Batch processing strategies
+   - Rate limiting approaches
+   - Queue management
+
+**Decision Options:** "approve", "revise", "reject", "escalate"
+**Severity Levels:** "low", "medium", "high", "critical"
+
+Provide specific, actionable feedback.
 """
 
             response_text = self.generate_review(
@@ -69,18 +99,23 @@ Evaluate the design for:
 
             response = json.loads(response_text)
 
+            logger.info("nfr_performance_review_completed", decision=response.get("decision"))
+
             return CriticOutput(
                 decision=ReviewDecision(response.get("decision", "approve")),
                 concerns=response.get("concerns", []),
                 suggestions=response.get("suggestions", []),
-                rationale=response.get("rationale", ""),
+                rationale=response.get("rationale", "No issues found"),
                 severity=response.get("severity", "medium"),
                 success=True
             )
 
         except Exception as e:
             logger.error("nfr_performance_review_error", error=str(e))
-            raise AgentExecutionException(f"NFR review failed: {str(e)}")
+            raise AgentExecutionException(
+                f"NFR review failed: {str(e)}",
+                details={"reviewer": "nfr", "error_type": type(e).__name__}
+            )
 
 
 class SecurityReviewer(CriticAgent):
@@ -115,14 +150,55 @@ Review designs for security vulnerabilities and compliance gaps.
         try:
             logger.info("security_review_started")
 
-            # TODO: Phase 2 - Implement detailed security analysis
             review_criteria = """
-Evaluate the design for:
-1. Authentication and authorization mechanisms
-2. Data protection (encryption, masking)
-3. API security
-4. Salesforce security model compliance
-5. Regulatory compliance requirements
+**Security Review Criteria:**
+
+Comprehensively analyze the design for security concerns:
+
+1. **Authentication & Authorization:**
+   - SSO and identity provider integration
+   - OAuth 2.0 flows if applicable
+   - Session management
+   - Multi-factor authentication
+
+2. **Salesforce Security Model:**
+   - Profiles and permission sets
+   - Object-level security (OLS)
+   - Field-level security (FLS)
+   - Sharing rules and role hierarchy
+   - Record-level security
+
+3. **Data Protection:**
+   - Encryption at rest (Platform Encryption, Shield)
+   - Encryption in transit (TLS/SSL)
+   - PII and sensitive data handling
+   - Data masking and anonymization
+   - Backup and recovery security
+
+4. **API Security:**
+   - API authentication methods
+   - Rate limiting and throttling
+   - Input validation and sanitization
+   - SQL injection prevention
+   - Cross-site scripting (XSS) protection
+
+5. **Compliance:**
+   - GDPR compliance if applicable
+   - HIPAA considerations for healthcare
+   - SOC 2, ISO 27001 requirements
+   - Data residency requirements
+   - Audit trail and logging
+
+6. **External Integrations:**
+   - Named credentials and secure credential storage
+   - Certificate management
+   - IP whitelisting
+   - VPN or private connectivity
+
+**Decision Options:** "approve", "revise", "reject", "escalate"
+**Severity for Security:** Prefer "high" or "critical" for security issues
+
+Be thorough - security is mission-critical.
 """
 
             response_text = self.generate_review(
@@ -132,18 +208,23 @@ Evaluate the design for:
 
             response = json.loads(response_text)
 
+            logger.info("security_review_completed", decision=response.get("decision"))
+
             return CriticOutput(
                 decision=ReviewDecision(response.get("decision", "approve")),
                 concerns=response.get("concerns", []),
                 suggestions=response.get("suggestions", []),
-                rationale=response.get("rationale", ""),
+                rationale=response.get("rationale", "Security posture acceptable"),
                 severity=response.get("severity", "medium"),
                 success=True
             )
 
         except Exception as e:
             logger.error("security_review_error", error=str(e))
-            raise AgentExecutionException(f"Security review failed: {str(e)}")
+            raise AgentExecutionException(
+                f"Security review failed: {str(e)}",
+                details={"reviewer": "security", "error_type": type(e).__name__}
+            )
 
 
 class IntegrationReviewer(CriticAgent):
@@ -178,14 +259,66 @@ Review designs for integration complexity and reliability.
         try:
             logger.info("integration_review_started")
 
-            # TODO: Phase 2 - Implement detailed integration analysis
             review_criteria = """
-Evaluate the design for:
-1. Integration patterns and APIs
-2. Error handling and resilience
-3. Data transformation requirements
-4. Real-time vs batch considerations
-5. Monitoring and observability
+**Integration Architecture Review Criteria:**
+
+Evaluate all integration aspects comprehensively:
+
+1. **Integration Patterns:**
+   - RESTful API design (Richardson Maturity Model)
+   - SOAP web services if applicable
+   - Event-driven architecture (Platform Events, Change Data Capture)
+   - Batch/bulk data integration
+   - Real-time vs asynchronous patterns
+   - Request-reply vs fire-and-forget
+
+2. **API Design:**
+   - Endpoint design and versioning
+   - Payload structure (JSON/XML)
+   - HTTP methods and status codes
+   - Pagination for large datasets
+   - Idempotency for critical operations
+   - API gateway usage
+
+3. **Error Handling & Resilience:**
+   - Retry logic with exponential backoff
+   - Circuit breaker patterns
+   - Dead letter queues
+   - Transaction rollback strategies
+   - Timeout configurations
+   - Graceful degradation
+
+4. **Data Transformation:**
+   - Mapping complexity
+   - Data validation rules
+   - Format conversions (JSON, XML, CSV)
+   - Field-level transformations
+   - Lookup and enrichment logic
+
+5. **Reliability & Performance:**
+   - Connection pooling
+   - Rate limiting and throttling
+   - Bulk API usage where appropriate
+   - Async processing for long-running operations
+   - Queue management (Queueable, Batch)
+
+6. **Monitoring & Observability:**
+   - Integration logs and alerts
+   - Success/failure metrics
+   - Performance monitoring
+   - End-to-end tracing
+   - SLA tracking
+
+7. **External System Considerations:**
+   - System availability and SLAs
+   - Authentication (OAuth, API keys, certificates)
+   - Network connectivity (VPN, private link)
+   - Firewall and IP whitelisting
+
+**Decision Options:** "approve", "revise", "reject", "escalate"
+**Severity Levels:** "low", "medium", "high", "critical"
+
+Focus on integration reliability and maintainability.
 """
 
             response_text = self.generate_review(
@@ -195,18 +328,23 @@ Evaluate the design for:
 
             response = json.loads(response_text)
 
+            logger.info("integration_review_completed", decision=response.get("decision"))
+
             return CriticOutput(
                 decision=ReviewDecision(response.get("decision", "approve")),
                 concerns=response.get("concerns", []),
                 suggestions=response.get("suggestions", []),
-                rationale=response.get("rationale", ""),
+                rationale=response.get("rationale", "Integration design acceptable"),
                 severity=response.get("severity", "medium"),
                 success=True
             )
 
         except Exception as e:
             logger.error("integration_review_error", error=str(e))
-            raise AgentExecutionException(f"Integration review failed: {str(e)}")
+            raise AgentExecutionException(
+                f"Integration review failed: {str(e)}",
+                details={"reviewer": "integration", "error_type": type(e).__name__}
+            )
 
 
 # TODO: Phase 2 - Implement DomainExpertReviewer

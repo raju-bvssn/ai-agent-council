@@ -11,9 +11,25 @@ from app.agents.factory import AgentFactory
 from app.agents.performer import AgentInput
 from app.agents.critic import CriticInput
 from app.graph.state_models import AgentRole, ReviewDecision, ReviewFeedback, WorkflowState, WorkflowStatus
+from app.state.persistence import get_persistence_manager
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _persist_state(state: WorkflowState) -> None:
+    """
+    Persist workflow state after node execution.
+    
+    Args:
+        state: WorkflowState to persist
+    """
+    try:
+        persistence = get_persistence_manager()
+        persistence.save_state(state)
+        logger.debug("state_persisted", session_id=state.session_id)
+    except Exception as e:
+        logger.error("state_persistence_failed", error=str(e), session_id=state.session_id)
 
 
 def master_architect_node(state: WorkflowState) -> dict[str, Any]:
@@ -46,6 +62,9 @@ def master_architect_node(state: WorkflowState) -> dict[str, Any]:
     )
     state.current_agent = AgentRole.SOLUTION_ARCHITECT
     state.status = WorkflowStatus.IN_PROGRESS
+
+    # Persist state
+    _persist_state(state)
 
     return {
         "messages": state.messages,
@@ -97,7 +116,10 @@ def solution_architect_node(state: WorkflowState) -> dict[str, Any]:
         success=output.success
     )
 
-    # TODO: Phase 2 - Parse output and update current_design
+    # TODO: Phase 2+ - Parse output and update current_design
+
+    # Persist state
+    _persist_state(state)
 
     return {
         "messages": state.messages,
@@ -155,6 +177,9 @@ def reviewer_node(state: WorkflowState, reviewer_role: AgentRole) -> dict[str, A
         decision=output.decision.value
     )
 
+    # Persist state
+    _persist_state(state)
+
     return {
         "reviews": state.reviews,
         "messages": state.messages,
@@ -177,7 +202,10 @@ def human_approval_node(state: WorkflowState) -> dict[str, Any]:
     # Mark as awaiting human approval
     state.status = WorkflowStatus.AWAITING_HUMAN
 
-    # TODO: Phase 2 - Integrate with UI for approval interface
+    # Persist state so UI can display it
+    _persist_state(state)
+
+    # TODO: Phase 2+ - Integrate with UI for real-time approval interface
 
     return {
         "status": state.status,
@@ -231,7 +259,10 @@ def faq_generation_node(state: WorkflowState) -> dict[str, Any]:
         success=output.success
     )
 
-    # TODO: Phase 2 - Parse output and update faq_entries and decision_rationale
+    # TODO: Phase 2+ - Parse output and update faq_entries and decision_rationale
+
+    # Persist state
+    _persist_state(state)
 
     return {
         "messages": state.messages,
@@ -254,9 +285,12 @@ def finalize_node(state: WorkflowState) -> dict[str, Any]:
     # Mark as completed
     state.status = WorkflowStatus.COMPLETED
 
-    # TODO: Phase 2 - Generate final summary
-    # TODO: Phase 2 - Export diagrams
-    # TODO: Phase 2 - Create deliverables
+    # TODO: Phase 2+ - Generate final summary
+    # TODO: Phase 2+ - Export diagrams
+    # TODO: Phase 2+ - Create deliverables
+
+    # Persist final state
+    _persist_state(state)
 
     return {
         "status": state.status,

@@ -26,7 +26,7 @@ from app.graph.state_models import (
     WorkflowState,
     WorkflowStatus,
 )
-from app.graph.workflow import compile_workflow, create_workflow_graph
+from app.graph.workflow import compile_workflow, create_workflow_graph, execute_workflow, execute_workflow_sync
 
 __all__ = [
     # State Models
@@ -50,5 +50,7 @@ __all__ = [
     # Workflow
     "create_workflow_graph",
     "compile_workflow",
+    "execute_workflow",
+    "execute_workflow_sync",
 ]
 

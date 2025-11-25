@@ -67,46 +67,73 @@ Always output in structured JSON format.
         Returns:
             FAQ entries and decision rationale
 
-        TODO: Implement full FAQ generation logic in Phase 2
         """
         try:
             logger.info("faq_agent_processing")
 
-            # TODO: Phase 2 - Extract FAQ from discussion history
-            # TODO: Phase 2 - Generate decision rationale
-            # TODO: Phase 2 - Create knowledge base entries
-            # TODO: Phase 2 - Integrate with NotebookLM for summaries
+            # Extract discussion context
+            messages = input_data.context.get("messages", []) if input_data.context else []
+            reviews = input_data.context.get("reviews", []) if input_data.context else []
+
+            # Build comprehensive discussion summary
+            discussion_summary = "**Agent Council Discussion Summary:**\n\n"
+            
+            for msg in messages:
+                agent = msg.get("agent", "Unknown")
+                content = msg.get("content", "")[:500]  # Truncate for context
+                discussion_summary += f"- **{agent}:** {content}...\n\n"
+
+            review_summary = "\n**Review Feedback:**\n\n"
+            for review in reviews:
+                reviewer = review.get("reviewer", "Unknown")
+                decision = review.get("decision", "unknown")
+                concerns = review.get("concerns", [])
+                suggestions = review.get("suggestions", [])
+                review_summary += f"- **{reviewer}** decided: {decision}\n"
+                if concerns:
+                    review_summary += f"  Concerns: {', '.join(concerns)}\n"
+                if suggestions:
+                    review_summary += f"  Suggestions: {', '.join(suggestions)}\n"
 
             prompt = f"""
-From the following council discussion, extract:
+As a Knowledge Management Specialist, analyze this Salesforce Agent Council discussion and create comprehensive documentation.
 
-Discussion: {input_data.request}
+**Original Requirement:**
+{input_data.request}
 
-Context: {json.dumps(input_data.context, indent=2)}
+{discussion_summary}
 
-Generate:
-1. FAQ entries (questions and answers from the discussion)
-2. Decision rationale (why certain architectural choices were made)
-3. Key takeaways for stakeholders
-4. Trade-offs and alternatives considered
+{review_summary}
 
-Format as structured JSON with:
-- faq_entries: list of {question, answer, category}
-- decision_rationale: detailed explanation
-- key_takeaways: list of important points
-- trade_offs: list of {decision, alternatives, rationale}
+**Your Task:**
+Generate documentation in JSON with faq_entries, decision_rationale, key_takeaways, trade_offs, risks_acknowledged, and next_steps.
+Make FAQ entries practical. Explain the "why" behind architectural choices clearly.
 """
 
             response = self.generate_with_safety(
                 user_prompt=prompt,
                 json_mode=True,
+                temperature=0.7
             )
 
-            logger.info("faq_agent_completed")
+            # Validate JSON
+            try:
+                json.loads(response)
+            except json.JSONDecodeError as e:
+                logger.warning("faq_agent_invalid_json", error=str(e))
+                response = json.dumps({"documentation": response})
+
+            logger.info("faq_agent_completed", message_count=len(messages), review_count=len(reviews))
 
             return AgentOutput(
                 content=response,
-                metadata={"agent": "faq", "source": "council_discussion"},
+                metadata={
+                    "agent": "faq",
+                    "source": "council_discussion",
+                    "messages_processed": len(messages),
+                    "reviews_processed": len(reviews),
+                    "model": self.llm_provider.get_model_name()
+                },
                 success=True
             )
 
@@ -114,6 +141,6 @@ Format as structured JSON with:
             logger.error("faq_agent_error", error=str(e))
             raise AgentExecutionException(
                 f"FAQ Agent execution failed: {str(e)}",
-                details={"agent": "faq"}
+                details={"agent": "faq", "error_type": type(e).__name__}
             )
 

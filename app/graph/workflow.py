@@ -4,7 +4,8 @@ LangGraph workflow definition for Agent Council system.
 Defines the workflow graph with nodes, edges, and conditional routing.
 """
 
-from typing import Any
+from datetime import datetime
+from typing import Any, Dict
 
 from langgraph.graph import END, StateGraph
 
@@ -17,7 +18,9 @@ from app.graph.node_definitions import (
     reviewer_node,
     solution_architect_node,
 )
-from app.graph.state_models import AgentRole, WorkflowState
+from app.graph.state_models import AgentRole, WorkflowState, WorkflowStatus
+from app.state.persistence import get_persistence_manager
+from app.utils.exceptions import WorkflowException
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -79,34 +82,50 @@ def create_workflow_graph() -> StateGraph:
     workflow.add_edge("solution_architect", "reviewer_security")
     workflow.add_edge("solution_architect", "reviewer_integration")
 
-    # Reviewers → Conditional routing
-    # TODO: Phase 2 - Implement proper parallel reviewer coordination
-    # For now, use simple sequential flow
+    # Create a consolidation node for reviewers
+    workflow.add_node("consolidate_reviews", _consolidate_reviews_node)
+    
+    # All reviewers feed into consolidation
+    workflow.add_edge("reviewer_nfr", "consolidate_reviews")
+    workflow.add_edge("reviewer_security", "consolidate_reviews")
+    workflow.add_edge("reviewer_integration", "consolidate_reviews")
 
-    # After reviews, determine next step
+    # After review consolidation, determine next step with conditional routing
     def route_after_reviews(state: WorkflowState) -> str:
         """Route after all reviews complete."""
-        return WorkflowEvaluator.determine_next_step(state)
+        next_step = WorkflowEvaluator.determine_next_step(state)
+        logger.info("routing_decision", next_step=next_step, session_id=state.session_id)
+        return next_step
 
-    # Conditional edges after reviews
-    # TODO: Phase 2 - Add proper conditional edge routing
-    # workflow.add_conditional_edges(
-    #     "reviewer_integration",  # Last reviewer
-    #     route_after_reviews,
-    #     {
-    #         "solution_architect": "solution_architect",  # Revision loop
-    #         "human_approval": "human_approval",
-    #         "faq_generation": "faq_generation",
-    #     }
-    # )
+    workflow.add_conditional_edges(
+        "consolidate_reviews",
+        route_after_reviews,
+        {
+            "solution_architect": "solution_architect",  # Revision loop
+            "human_approval": "human_approval",          # Escalation or approval needed
+            "faq_generation": "faq_generation",          # All approved, skip human
+        }
+    )
 
-    # For Phase 1, use simple edges
-    workflow.add_edge("reviewer_nfr", "human_approval")
-    workflow.add_edge("reviewer_security", "human_approval")
-    workflow.add_edge("reviewer_integration", "human_approval")
+    # Human Approval conditional routing
+    def route_after_human(state: WorkflowState) -> str:
+        """Route after human approval."""
+        if state.human_approved:
+            return "faq_generation"
+        elif state.human_feedback and state.can_proceed():
+            return "solution_architect"  # Revision with feedback
+        else:
+            return "finalize"  # Rejected or max revisions
 
-    # Human Approval → FAQ Generation
-    workflow.add_edge("human_approval", "faq_generation")
+    workflow.add_conditional_edges(
+        "human_approval",
+        route_after_human,
+        {
+            "faq_generation": "faq_generation",
+            "solution_architect": "solution_architect",
+            "finalize": "finalize",
+        }
+    )
 
     # FAQ Generation → Finalize
     workflow.add_edge("faq_generation", "finalize")
@@ -119,19 +138,39 @@ def create_workflow_graph() -> StateGraph:
     return workflow
 
 
+def _consolidate_reviews_node(state: WorkflowState) -> Dict[str, Any]:
+    """
+    Consolidate reviews from all reviewers.
+    
+    This node doesn't call an agent - it just marks that all reviews are complete
+    and updates the workflow state.
+    """
+    logger.info("consolidating_reviews", session_id=state.session_id, review_count=len(state.reviews))
+    
+    # Mark as in progress (reviews complete, deciding next step)
+    state.status = WorkflowStatus.IN_PROGRESS
+    state.updated_at = datetime.utcnow()
+    
+    return {
+        "status": state.status,
+        "updated_at": state.updated_at,
+    }
+
+
 def compile_workflow() -> Any:
     """
     Compile the workflow graph.
 
     Returns:
         Compiled workflow ready for execution
-
-    TODO: Phase 2 - Add LangSmith tracing configuration
-    TODO: Phase 2 - Add checkpointing for state persistence
     """
     logger.info("compiling_workflow")
 
     graph = create_workflow_graph()
+    
+    # TODO: Phase 2+ - Add LangSmith tracing configuration
+    # TODO: Phase 2+ - Add checkpointing for state persistence
+    
     compiled = graph.compile()
 
     logger.info("workflow_compiled")
@@ -139,7 +178,81 @@ def compile_workflow() -> Any:
     return compiled
 
 
-# TODO: Phase 2 - Add workflow execution functions
-# TODO: Phase 2 - Add streaming support for UI updates
-# TODO: Phase 2 - Add checkpoint management for resuming workflows
+async def execute_workflow(session_id: str) -> WorkflowState:
+    """
+    Execute the complete workflow for a session.
+    
+    Args:
+        session_id: Session ID to execute workflow for
+        
+    Returns:
+        Final workflow state
+        
+    Raises:
+        WorkflowException: On execution errors
+    """
+    try:
+        logger.info("workflow_execution_started", session_id=session_id)
+        
+        # Load session state
+        persistence = get_persistence_manager()
+        state = persistence.load_state(session_id)
+        
+        # Mark as in progress
+        state.status = WorkflowStatus.IN_PROGRESS
+        persistence.save_state(state)
+        
+        # Compile workflow
+        workflow = compile_workflow()
+        
+        # Execute workflow
+        final_state = workflow.invoke(state)
+        
+        # Convert dict back to WorkflowState if needed
+        if isinstance(final_state, dict):
+            final_state = WorkflowState(**final_state)
+        
+        # Save final state
+        final_state.status = WorkflowStatus.COMPLETED
+        persistence.save_state(final_state)
+        
+        logger.info("workflow_execution_completed", session_id=session_id)
+        
+        return final_state
+        
+    except Exception as e:
+        logger.error("workflow_execution_failed", error=str(e), session_id=session_id)
+        
+        # Update state with error
+        try:
+            state.status = WorkflowStatus.FAILED
+            state.errors.append(str(e))
+            persistence.save_state(state)
+        except:
+            pass
+        
+        raise WorkflowException(
+            f"Workflow execution failed: {str(e)}",
+            details={"session_id": session_id}
+        )
+
+
+def execute_workflow_sync(session_id: str) -> WorkflowState:
+    """
+    Synchronous wrapper for workflow execution.
+    
+    Args:
+        session_id: Session ID to execute workflow for
+        
+    Returns:
+        Final workflow state
+    """
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(execute_workflow(session_id))
 

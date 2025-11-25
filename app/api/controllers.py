@@ -141,20 +141,64 @@ class WorkflowController:
 
         Returns:
             Workflow execution response
-
-        TODO: Phase 2 - Implement actual workflow execution
         """
         logger.info("api_execute_workflow_request", session_id=request.session_id)
 
-        # Placeholder implementation
-        logger.warning("workflow_execution_not_implemented")
+        try:
+            # Import workflow execution
+            from app.graph.workflow import execute_workflow_sync
 
-        return WorkflowExecutionResponse(
-            session_id=request.session_id,
-            status="pending",
-            completed=False,
-            error="Workflow execution not yet implemented (Phase 2)",
-        )
+            # Execute workflow
+            final_state = execute_workflow_sync(request.session_id)
+
+            logger.info("api_workflow_executed", session_id=request.session_id, status=final_state.status)
+
+            return WorkflowExecutionResponse(
+                session_id=request.session_id,
+                status=final_state.status.value,
+                completed=final_state.status.value == "completed",
+                error=None
+            )
+
+        except Exception as e:
+            logger.error("api_workflow_execution_failed", error=str(e), session_id=request.session_id)
+            return WorkflowExecutionResponse(
+                session_id=request.session_id,
+                status="failed",
+                completed=False,
+                error=str(e)
+            )
+
+    def get_workflow_status(self, session_id: str) -> WorkflowExecutionResponse:
+        """
+        Get workflow execution status.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Workflow status response
+        """
+        logger.info("api_get_workflow_status", session_id=session_id)
+
+        try:
+            state = self.session_manager.get_session(session_id)
+
+            return WorkflowExecutionResponse(
+                session_id=session_id,
+                status=state.status.value,
+                completed=state.status.value in ["completed", "failed", "cancelled"],
+                error=None if not state.errors else state.errors[-1]
+            )
+
+        except Exception as e:
+            logger.error("api_get_workflow_status_failed", error=str(e), session_id=session_id)
+            return WorkflowExecutionResponse(
+                session_id=session_id,
+                status="unknown",
+                completed=False,
+                error=str(e)
+            )
 
 
 class AgentController:

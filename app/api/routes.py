@@ -112,6 +112,18 @@ async def execute_workflow(request: WorkflowExecutionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@workflow_router.get("/{session_id}/status", response_model=WorkflowExecutionResponse)
+async def get_workflow_status(session_id: str):
+    """Get workflow execution status."""
+    try:
+        return workflow_controller.get_workflow_status(session_id)
+    except SessionNotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except AgentCouncilException as e:
+        logger.error("get_workflow_status_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Agent endpoints
 @agent_router.post("/execute", response_model=AgentExecutionResponse)
 async def execute_agent(request: AgentExecutionRequest):

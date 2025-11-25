@@ -72,50 +72,82 @@ Output your responses in clear, structured JSON format.
 
         Returns:
             Initial architectural analysis and plan
-
-        TODO: Implement full orchestration logic in Phase 2
         """
         try:
             logger.info("master_architect_processing", request=input_data.request[:100])
 
-            # TODO: Phase 2 - Implement requirement analysis
-            # TODO: Phase 2 - Generate initial architectural approach
-            # TODO: Phase 2 - Create delegation plan for reviewers
+            # Build context string
+            context_str = json.dumps(input_data.context, indent=2) if input_data.context else "No additional context provided"
 
             prompt = f"""
-Analyze the following requirement and provide an initial architectural approach:
+Analyze the following Salesforce solution requirement and provide an initial architectural approach:
 
-Requirement: {input_data.request}
+**Customer Requirement:**
+{input_data.request}
 
-Context: {json.dumps(input_data.context, indent=2)}
+**Context:**
+{context_str}
 
-Provide:
-1. Requirements summary
-2. Key considerations
-3. Proposed high-level approach
-4. Questions for clarification
-5. Areas requiring specialist review
+**Your Task:**
+Provide a comprehensive initial analysis in the following JSON structure:
+{{
+  "requirements_summary": "Clear summary of what the customer needs",
+  "key_considerations": [
+    "List of important factors to consider",
+    "Technical constraints",
+    "Business requirements"
+  ],
+  "proposed_approach": {{
+    "high_level_architecture": "Description of the proposed architecture",
+    "key_components": ["Component 1", "Component 2"],
+    "integration_strategy": "How systems will integrate"
+  }},
+  "questions_for_clarification": [
+    "Questions that would help refine the solution"
+  ],
+  "areas_for_specialist_review": {{
+    "performance": "NFR and performance considerations",
+    "security": "Security aspects to review",
+    "integration": "Integration points to validate"
+  }},
+  "risks_and_mitigation": [
+    {{"risk": "Potential risk", "mitigation": "How to address it"}}
+  ]
+}}
 
-Format your response as JSON.
+Ensure your response is valid JSON and considers Salesforce best practices, governor limits, and scalability.
 """
 
             response = self.generate_with_safety(
                 user_prompt=prompt,
                 json_mode=True,
+                temperature=0.7
             )
 
-            logger.info("master_architect_completed")
+            # Validate JSON response
+            try:
+                json.loads(response)
+            except json.JSONDecodeError as e:
+                logger.warning("master_architect_invalid_json", error=str(e))
+                # Wrap in valid JSON if needed
+                response = json.dumps({"analysis": response})
+
+            logger.info("master_architect_completed", response_length=len(response))
 
             return AgentOutput(
                 content=response,
-                metadata={"agent": "master_architect", "phase": "initial_analysis"},
+                metadata={
+                    "agent": "master_architect",
+                    "phase": "initial_analysis",
+                    "model": self.llm_provider.get_model_name()
+                },
                 success=True
             )
 
         except Exception as e:
-            logger.error("master_architect_error", error=str(e))
+            logger.error("master_architect_error", error=str(e), request_preview=input_data.request[:100])
             raise AgentExecutionException(
                 f"Master Architect execution failed: {str(e)}",
-                details={"agent": "master_architect"}
+                details={"agent": "master_architect", "error_type": type(e).__name__}
             )
 
