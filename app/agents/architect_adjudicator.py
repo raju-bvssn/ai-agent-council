@@ -27,6 +27,15 @@ from app.llm.model_selector import auto_select_model
 from app.utils.exceptions import AgentExecutionException
 from app.utils.logging import get_logger
 
+# LangSmith tracing (optional)
+try:
+    from langsmith import traceable
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if not args else decorator(args[0])
+
 logger = get_logger(__name__)
 
 
@@ -85,6 +94,7 @@ When agents disagree, you:
 Your decisions are FINAL and will be implemented in the solution design.
 """
     
+    @traceable(name="architect_adjudicator_run")
     def run(self, input_data: AgentInput) -> AgentOutput:
         """
         Execute Architect Adjudicator logic.
