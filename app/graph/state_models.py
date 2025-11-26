@@ -18,6 +18,12 @@ class Concern(BaseModel):
     area: str
     description: str
     severity: str = "medium"
+    
+    def __str__(self) -> str:
+        """Return string representation for display and logging."""
+        if self.area:
+            return f"{self.area}: {self.description}"
+        return self.description
 
 
 class Suggestion(BaseModel):
@@ -25,6 +31,12 @@ class Suggestion(BaseModel):
     area: str
     suggestion: str
     priority: Optional[str] = None
+    
+    def __str__(self) -> str:
+        """Return string representation for display and logging."""
+        if self.area:
+            return f"{self.area}: {self.suggestion}"
+        return self.suggestion
 
 
 class WorkflowStatus(str, Enum):

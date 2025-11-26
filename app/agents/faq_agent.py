@@ -101,9 +101,13 @@ Always output in structured JSON format.
                 suggestions = review.get("suggestions", [])
                 review_summary += f"- **{reviewer}** decided: {decision}\n"
                 if concerns:
-                    review_summary += f"  Concerns: {', '.join(concerns)}\n"
+                    # Convert Concern objects to strings
+                    concern_strs = [str(c) if not isinstance(c, str) else c for c in concerns]
+                    review_summary += f"  Concerns: {', '.join(concern_strs)}\n"
                 if suggestions:
-                    review_summary += f"  Suggestions: {', '.join(suggestions)}\n"
+                    # Convert Suggestion objects to strings
+                    suggestion_strs = [str(s) if not isinstance(s, str) else s for s in suggestions]
+                    review_summary += f"  Suggestions: {', '.join(suggestion_strs)}\n"
 
             prompt = f"""
 As a Knowledge Management Specialist, analyze this Salesforce Agent Council discussion and create comprehensive documentation.

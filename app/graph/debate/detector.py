@@ -124,7 +124,7 @@ def _detect_pattern_conflicts(reviews: List[ReviewFeedback]) -> List[Disagreemen
     
     # Combine all suggestions and concerns from all reviews
     all_text = " ".join([
-        " ".join(r.suggestions + r.concerns)
+        " ".join([str(item) for item in (r.suggestions + r.concerns)])
         for r in reviews
     ]).lower()
     
@@ -137,7 +137,7 @@ def _detect_pattern_conflicts(reviews: List[ReviewFeedback]) -> List[Disagreemen
                 if keyword in all_text:
                     # Find which agent(s) mentioned this side
                     for review in reviews:
-                        review_text = " ".join(review.suggestions + review.concerns).lower()
+                        review_text = " ".join([str(item) for item in (review.suggestions + review.concerns)]).lower()
                         if keyword in review_text:
                             if side_name not in sides_detected:
                                 sides_detected[side_name] = []

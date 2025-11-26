@@ -197,9 +197,13 @@ Always output in structured JSON format for easy processing.
                 for review in reviews:
                     revision_context += f"\n- **{review.get('reviewer')}** ({review.get('decision')})\n"
                     if review.get('concerns'):
-                        revision_context += f"  Concerns: {', '.join(review['concerns'])}\n"
+                        # Convert Concern objects to strings
+                        concern_strs = [str(c) if not isinstance(c, str) else c for c in review['concerns']]
+                        revision_context += f"  Concerns: {', '.join(concern_strs)}\n"
                     if review.get('suggestions'):
-                        revision_context += f"  Suggestions: {', '.join(review['suggestions'])}\n"
+                        # Convert Suggestion objects to strings
+                        suggestion_strs = [str(s) if not isinstance(s, str) else s for s in review['suggestions']]
+                        revision_context += f"  Suggestions: {', '.join(suggestion_strs)}\n"
             
             # Format tool results for context
             tool_context = ""

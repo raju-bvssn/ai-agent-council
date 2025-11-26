@@ -20,9 +20,31 @@ from app.graph.state_models import (
     DeliverablesBundle,
     AgentRole,
     ReviewDecision,
+    Concern,
+    Suggestion,
 )
 
 logger = structlog.get_logger(__name__)
+
+
+def _to_string(item) -> str:
+    """
+    Convert Concern/Suggestion objects or strings to plain strings.
+    
+    Args:
+        item: String, Concern, or Suggestion object
+        
+    Returns:
+        Plain string representation
+    """
+    if isinstance(item, str):
+        return item
+    elif isinstance(item, Concern):
+        return f"{item.area}: {item.description}" if item.area else item.description
+    elif isinstance(item, Suggestion):
+        return f"{item.area}: {item.suggestion}" if item.area else item.suggestion
+    else:
+        return str(item)
 
 
 def build_architecture_summary(state: WorkflowState) -> ArchitectureSummary:
@@ -220,10 +242,10 @@ def build_risks_and_mitigations(state: WorkflowState) -> list[RiskItem]:
             for concern in review.concerns[:2]:  # Top 2 concerns per review
                 risks.append(RiskItem(
                     id=f"RISK-{risk_id_counter:03d}",
-                    description=concern,
+                    description=_to_string(concern),
                     impact=review.severity,
                     likelihood="medium",  # Conservative estimate
-                    mitigation=review.suggestions[0] if review.suggestions else "Review and address during implementation phase",
+                    mitigation=_to_string(review.suggestions[0]) if review.suggestions else "Review and address during implementation phase",
                     owner=review.reviewer_role.value if review.reviewer_role else None,
                 ))
                 risk_id_counter += 1
