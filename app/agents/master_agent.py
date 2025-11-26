@@ -13,6 +13,15 @@ from app.llm.providers import LLMProvider
 from app.utils.exceptions import AgentExecutionException
 from app.utils.logging import get_logger
 
+# LangSmith tracing (optional)
+try:
+    from langsmith import traceable
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if not args else decorator(args[0])
+
 logger = get_logger(__name__)
 
 
@@ -63,6 +72,7 @@ Always:
 Output your responses in clear, structured JSON format.
 """
 
+    @traceable(name="master_architect_run")
     def run(self, input_data: AgentInput) -> AgentOutput:
         """
         Execute Master Architect logic.

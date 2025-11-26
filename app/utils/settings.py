@@ -58,10 +58,19 @@ class Settings(BaseSettings):
     gemini_temperature: float = Field(default=0.7, description="LLM temperature", ge=0.0, le=2.0)
     gemini_max_tokens: int = Field(default=8192, description="Max output tokens", gt=0)
 
-    # LangSmith Tracing
-    langchain_tracing_v2: bool = Field(default=False, description="Enable LangSmith tracing")
-    langchain_api_key: Optional[str] = Field(default=None, description="LangSmith API key")
-    langchain_project: str = Field(default="agent-council", description="LangSmith project name")
+    # LangSmith Tracing (Observability)
+    enable_langsmith: bool = Field(default=False, description="Enable LangSmith tracing")
+    langsmith_api_key: Optional[str] = Field(default=None, description="LangSmith API key")
+    langsmith_project: str = Field(default="agent-council", description="LangSmith project name")
+    langsmith_endpoint: str = Field(
+        default="https://api.smith.langchain.com",
+        description="LangSmith API endpoint"
+    )
+    
+    # Legacy LangSmith fields (for compatibility)
+    langchain_tracing_v2: bool = Field(default=False, description="Enable LangSmith tracing (legacy)")
+    langchain_api_key: Optional[str] = Field(default=None, description="LangSmith API key (legacy)")
+    langchain_project: str = Field(default="agent-council", description="LangSmith project name (legacy)")
 
     # Tool Integration
     vibes_api_key: Optional[str] = Field(default=None, description="MuleSoft Vibes API key")
@@ -123,6 +132,16 @@ class Settings(BaseSettings):
     def is_demo_mode(self) -> bool:
         """Check if running in demo mode (mock tool responses)."""
         return self.demo_mode
+    
+    @property
+    def is_langsmith_enabled(self) -> bool:
+        """Check if LangSmith tracing is enabled."""
+        # Support both new and legacy field names
+        return self.enable_langsmith or self.langchain_tracing_v2
+    
+    def get_langsmith_api_key(self) -> Optional[str]:
+        """Get LangSmith API key with fallback to legacy field."""
+        return self.langsmith_api_key or self.langchain_api_key
 
     def get_allowed_origins_list(self) -> list[str]:
         """Parse comma-separated allowed origins into a list."""

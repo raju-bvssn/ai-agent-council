@@ -16,6 +16,16 @@ from app.tools.schemas import ToolResult
 from app.utils.exceptions import AgentExecutionException
 from app.utils.logging import get_logger
 
+# LangSmith tracing (optional)
+try:
+    from langsmith import traceable
+except ImportError:
+    # Fallback if langsmith not installed
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if not args else decorator(args[0])
+
 logger = get_logger(__name__)
 
 
@@ -151,6 +161,7 @@ Always output in structured JSON format for easy processing.
         
         return tool_results
 
+    @traceable(name="solution_architect_run")
     def run(self, input_data: AgentInput) -> AgentOutput:
         """
         Execute Solution Architect logic with tool augmentation.

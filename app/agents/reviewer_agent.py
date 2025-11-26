@@ -20,6 +20,15 @@ from app.tools import get_tool
 from app.utils.exceptions import AgentExecutionException
 from app.utils.logging import get_logger
 
+# LangSmith tracing (optional)
+try:
+    from langsmith import traceable
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if not args else decorator(args[0])
+
 logger = get_logger(__name__)
 
 
@@ -92,6 +101,7 @@ Focus areas:
 Review designs for performance bottlenecks and scalability concerns.
 """
 
+    @traceable(name="nfr_performance_reviewer_run")
     def run(self, input_data: CriticInput) -> CriticOutput:
         """Execute NFR/Performance review with tool augmentation."""
         try:
@@ -249,6 +259,7 @@ Focus areas:
 Review designs for security vulnerabilities and compliance gaps.
 """
 
+    @traceable(name="security_reviewer_run")
     def run(self, input_data: CriticInput) -> CriticOutput:
         """Execute Security review with tool augmentation."""
         try:
@@ -433,6 +444,7 @@ Focus areas:
 Review designs for integration complexity and reliability.
 """
 
+    @traceable(name="integration_reviewer_run")
     def run(self, input_data: CriticInput) -> CriticOutput:
         """Execute Integration review with tool augmentation."""
         try:
