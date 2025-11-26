@@ -97,6 +97,14 @@ class Settings(BaseSettings):
     max_retries: int = Field(default=3, description="Max retry attempts for API calls", ge=0)
     retry_delay: float = Field(default=1.0, description="Delay between retries (seconds)", ge=0)
     request_timeout: int = Field(default=30, description="Request timeout (seconds)", gt=0)
+    
+    # Debate Engine Stability (Phase 3C+)
+    max_debate_rounds: int = Field(default=3, description="Maximum debate rounds per disagreement", ge=1, le=10)
+    debate_round_timeout: int = Field(default=15, description="Wall-clock timeout per debate round (seconds)", gt=0)
+    enable_repetition_detection: bool = Field(default=True, description="Detect and stop repetitive debate arguments")
+    repetition_similarity_threshold: float = Field(default=0.85, description="Similarity threshold for repetition detection", ge=0.5, le=1.0)
+    enable_forced_consensus: bool = Field(default=True, description="Force consensus after max rounds or timeout")
+    adjudicator_max_runs: int = Field(default=1, description="Maximum adjudicator runs per session", ge=1, le=3)
 
     @field_validator("log_level")
     @classmethod

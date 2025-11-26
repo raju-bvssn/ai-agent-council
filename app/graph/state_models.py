@@ -155,6 +155,104 @@ class ReviewerRoundResult(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
+# ============================================================================
+# Phase 3C: Deliverables Models
+# ============================================================================
+
+class ArchitectureSummary(BaseModel):
+    """
+    High-level architecture summary for deliverables.
+    
+    Provides executive overview of the proposed solution with key capabilities
+    and non-functional highlights.
+    """
+    overview: str
+    key_capabilities: list[str] = Field(default_factory=list)
+    non_functional_highlights: list[str] = Field(default_factory=list)
+
+
+class DecisionRecord(BaseModel):
+    """
+    Architecture Decision Record (ADR-style) for key design decisions.
+    
+    Documents critical decisions made during the architecture review process
+    with full context and rationale.
+    """
+    id: str
+    title: str
+    context: str
+    decision: str
+    rationale: str
+    consequences: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class RiskItem(BaseModel):
+    """
+    Technical risk item with impact assessment and mitigation strategy.
+    
+    Identifies potential risks in the proposed architecture with recommended
+    mitigations for the implementation team.
+    """
+    id: str
+    description: str
+    impact: str  # low, medium, high, critical
+    likelihood: str  # low, medium, high
+    mitigation: str
+    owner: Optional[str] = None  # Suggested owner or team
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class FAQItem(BaseModel):
+    """
+    FAQ entry for human architect review board.
+    
+    Captures common questions and answers derived from the agent council
+    discussions, debates, and final decisions.
+    """
+    question: str
+    answer: str
+    source: Optional[str] = None  # e.g., "debate_outcome", "adjudicator", "reviewer"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DiagramDescriptor(BaseModel):
+    """
+    Diagram descriptor with Lucid URL or Mermaid fallback.
+    
+    Describes architecture diagrams generated or recommended by the system.
+    Supports both external diagramming tools (Lucid) and embedded Mermaid.
+    """
+    diagram_type: str  # "context", "integration_flow", "deployment", "sequence"
+    title: str
+    description: str
+    lucid_url: Optional[str] = None  # External Lucid diagram link
+    mermaid_source: Optional[str] = None  # Embedded Mermaid diagram source
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DeliverablesBundle(BaseModel):
+    """
+    Complete deliverables bundle for customer presentation.
+    
+    Aggregates all architecture artifacts, decisions, risks, and documentation
+    into a single comprehensive package suitable for client delivery.
+    """
+    session_id: str
+    architecture_summary: ArchitectureSummary
+    decisions: list[DecisionRecord] = Field(default_factory=list)
+    risks: list[RiskItem] = Field(default_factory=list)
+    faqs: list[FAQItem] = Field(default_factory=list)
+    diagrams: list[DiagramDescriptor] = Field(default_factory=list)
+    markdown_report: str = ""  # Complete Markdown-formatted report
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Metadata
+    workflow_version: str = "3.0"  # Phase 3C
+    includes_tool_insights: bool = False  # Whether external tools were used
+    demo_mode: bool = False  # Whether generated in demo mode
+
+
 class WorkflowState(BaseModel):
     """
     Complete state for the Agent Council workflow.
@@ -214,6 +312,9 @@ class WorkflowState(BaseModel):
     # Error handling
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+
+    # Phase 3C: Deliverables
+    deliverables: Optional[DeliverablesBundle] = None
 
     # Metadata
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -324,6 +425,9 @@ class WorkflowResult(BaseModel):
     langsmith_run_id: Optional[str] = None
     langsmith_trace_url: Optional[str] = None
     
+    # Phase 3C: Deliverables
+    deliverables: Optional[DeliverablesBundle] = None
+    
     @classmethod
     def from_workflow_state(cls, state: WorkflowState, current_node: Optional[str] = None) -> "WorkflowResult":
         """
@@ -382,6 +486,8 @@ class WorkflowResult(BaseModel):
             # LangSmith tracing (POC)
             langsmith_run_id=state.langsmith_run_id,
             langsmith_trace_url=state.langsmith_trace_url,
+            # Phase 3C: Deliverables
+            deliverables=state.deliverables,
         )
     
     class Config:

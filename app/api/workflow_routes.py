@@ -184,3 +184,69 @@ async def get_status(session_id: str):
         logger.error("api_get_workflow_status_error", error=str(e), session_id=session_id)
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
+@workflow_router.get("/{session_id}/deliverables")
+@traceable(name="api_get_deliverables")
+async def get_deliverables(session_id: str):
+    """
+    Get final architecture deliverables for a completed workflow.
+    
+    Phase 3C: Returns comprehensive deliverables bundle including:
+    - Architecture summary
+    - Key design decisions (ADR-style)
+    - Risks and mitigations
+    - FAQ items
+    - Diagram descriptors (Lucid URLs or Mermaid source)
+    - Complete Markdown report
+    
+    Only available once workflow status is COMPLETED and deliverables
+    have been generated.
+    
+    Args:
+        session_id: Session ID to retrieve deliverables for
+        
+    Returns:
+        DeliverablesBundle as JSON
+        
+    Raises:
+        404: Session not found or deliverables not available
+        500: Internal server error
+    """
+    try:
+        logger.info("api_get_deliverables", session_id=session_id)
+        
+        # Get workflow status which includes deliverables
+        result = get_workflow_status(session_id)
+        
+        # Check if deliverables are available
+        if result.deliverables is None:
+            logger.warning(
+                "deliverables_not_available",
+                session_id=session_id,
+                status=result.status.value,
+            )
+            raise HTTPException(
+                status_code=404,
+                detail=f"Deliverables not yet available. Workflow status: {result.status.value}. "
+                       f"Deliverables are generated when workflow reaches completion."
+            )
+        
+        logger.info(
+            "api_get_deliverables_success",
+            session_id=session_id,
+            decisions_count=len(result.deliverables.decisions),
+            risks_count=len(result.deliverables.risks),
+            faqs_count=len(result.deliverables.faqs),
+        )
+        
+        return result.deliverables.model_dump()
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except WorkflowException as e:
+        logger.error("api_get_deliverables_failed", error=str(e), session_id=session_id)
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("api_get_deliverables_error", error=str(e), session_id=session_id)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+

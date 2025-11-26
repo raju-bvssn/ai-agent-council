@@ -377,4 +377,59 @@ Return ONLY a JSON object:
                 f"Integration flow diagram generation failed: {str(e)}",
                 error_type="GenerationError"
             )
+    
+    async def generate_architecture_diagrams(self, state: Any) -> dict[str, str]:
+        """
+        Generate multiple architecture diagrams for deliverables.
+        
+        Phase 3C: Generates context, integration_flow, deployment, and sequence
+        diagrams for a completed workflow state.
+        
+        Args:
+            state: WorkflowState object with architecture details
+            
+        Returns:
+            Dictionary mapping diagram types to URLs or identifiers:
+            {
+                "context": "<url_or_id>",
+                "integration_flow": "<url_or_id>",
+                "deployment": "<url_or_id>",
+                "sequence": "<url_or_id>"
+            }
+            
+            In DEMO_MODE or when Lucid is unavailable, returns empty dict
+            (triggering Mermaid fallback in deliverables service).
+        """
+        self.logger.info("generating_architecture_diagrams", session_id=getattr(state, 'session_id', 'unknown'))
+        
+        if self.use_mock:
+            # In demo mode, return empty dict to trigger Mermaid fallback
+            self.logger.info("lucid_demo_mode", fallback="mermaid")
+            return {}
+        
+        # TODO: When Lucid API becomes available, implement actual diagram generation
+        # For now, return empty dict to use Mermaid fallback
+        # This allows the POC to work end-to-end without blocking on external APIs
+        
+        try:
+            # Future implementation would:
+            # 1. Extract key architecture details from state
+            # 2. Call Lucid API for each diagram type
+            # 3. Return URLs/IDs for each generated diagram
+            
+            # Example structure (when implemented):
+            # diagrams = {}
+            # if state.current_design:
+            #     context_result = await self._generate_architecture(state.user_request)
+            #     if context_result.success and context_result.artifacts:
+            #         diagrams["context"] = context_result.artifacts[0]
+            #     ...
+            # return diagrams
+            
+            self.logger.info("lucid_api_not_implemented", fallback="mermaid")
+            return {}
+            
+        except Exception as e:
+            self.logger.error("lucid_diagram_generation_failed", error=str(e))
+            return {}
 

@@ -7,15 +7,19 @@ consensus or prepare for adjudication.
 
 import asyncio
 import uuid
+import time
 from typing import List, Optional
 from datetime import datetime
+from difflib import SequenceMatcher
 
 from app.graph.state_models import Disagreement, DebateOutcome, AgentRole
 from app.llm.factory import get_llm_provider
 from app.llm.model_selector import auto_select_model
 from app.utils.logging import get_logger
+from app.utils.settings import get_settings
 
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 class DebateEngine:
@@ -25,18 +29,30 @@ class DebateEngine:
     Manages debate rounds, position revisions, and consensus assessment.
     """
     
-    def __init__(self, max_rounds: int = 2, model: Optional[str] = None):
+    def __init__(self, max_rounds: Optional[int] = None, model: Optional[str] = None):
         """
-        Initialize debate engine.
+        Initialize debate engine with stability safeguards.
         
         Args:
-            max_rounds: Maximum number of debate rounds
+            max_rounds: Maximum number of debate rounds (uses settings if None)
             model: Model to use for debate facilitation (auto-selected if None)
         """
-        self.max_rounds = max_rounds
+        self.max_rounds = max_rounds or settings.max_debate_rounds
         self.model = model
         self.provider = get_llm_provider()
-        logger.info("debate_engine_initialized", max_rounds=max_rounds, model=model)
+        self.round_timeout = settings.debate_round_timeout
+        self.enable_repetition_detection = settings.enable_repetition_detection
+        self.repetition_threshold = settings.repetition_similarity_threshold
+        self.enable_forced_consensus = settings.enable_forced_consensus
+        
+        logger.info(
+            "debate_engine_initialized",
+            max_rounds=self.max_rounds,
+            round_timeout=self.round_timeout,
+            repetition_detection=self.enable_repetition_detection,
+            forced_consensus=self.enable_forced_consensus,
+            model=model
+        )
     
     async def facilitate_debate(
         self,
@@ -70,26 +86,106 @@ class DebateEngine:
         
         revised_positions = disagreement.positions.copy()
         debate_history = []
+        forced_consensus = False
+        timeout_occurred = False
+        repetition_detected = False
         
-        # Conduct debate rounds
+        # Conduct debate rounds with safeguards
         for round_num in range(1, self.max_rounds + 1):
-            logger.info("debate_round_started", debate_id=debate_id, round=round_num)
+            round_start_time = time.time()
+            logger.info("debate_round_started", debate_id=debate_id, round=round_num, max_rounds=self.max_rounds)
             
-            round_result = await self._conduct_debate_round(
-                disagreement=disagreement,
-                current_positions=revised_positions,
-                round_number=round_num,
-                context=context,
-                model=model
+            # Safeguard 1: Round timeout using asyncio.wait_for
+            try:
+                round_result = await asyncio.wait_for(
+                    self._conduct_debate_round(
+                        disagreement=disagreement,
+                        current_positions=revised_positions,
+                        round_number=round_num,
+                        context=context,
+                        model=model
+                    ),
+                    timeout=self.round_timeout
+                )
+            except asyncio.TimeoutError:
+                timeout_occurred = True
+                logger.warning(
+                    "debate_round_timeout",
+                    debate_id=debate_id,
+                    round=round_num,
+                    timeout_seconds=self.round_timeout
+                )
+                # Force consensus on timeout
+                if self.enable_forced_consensus:
+                    forced_consensus = True
+                    logger.info("forced_consensus_due_to_timeout", debate_id=debate_id)
+                    break
+                else:
+                    # Use previous positions as fallback
+                    round_result = {
+                        "revised_positions": revised_positions,
+                        "consensus_reached": False,
+                        "consensus_explanation": f"Round timed out after {self.round_timeout}s",
+                        "common_ground": [],
+                        "remaining_differences": []
+                    }
+            
+            round_duration = time.time() - round_start_time
+            debate_history.append(round_result)
+            
+            # Extract new positions
+            new_positions = round_result["revised_positions"]
+            
+            # Safeguard 2: Repetition detection
+            if self.enable_repetition_detection and round_num > 1:
+                similarity = self._calculate_position_similarity(revised_positions, new_positions)
+                logger.debug(
+                    "repetition_check",
+                    debate_id=debate_id,
+                    round=round_num,
+                    similarity=similarity,
+                    threshold=self.repetition_threshold
+                )
+                
+                if similarity >= self.repetition_threshold:
+                    repetition_detected = True
+                    logger.warning(
+                        "repetitive_debate_detected",
+                        debate_id=debate_id,
+                        round=round_num,
+                        similarity=similarity,
+                        threshold=self.repetition_threshold
+                    )
+                    # Force consensus on repetition
+                    if self.enable_forced_consensus:
+                        forced_consensus = True
+                        logger.info("forced_consensus_due_to_repetition", debate_id=debate_id)
+                        break
+            
+            revised_positions = new_positions
+            
+            logger.info(
+                "debate_round_completed",
+                debate_id=debate_id,
+                round=round_num,
+                duration_seconds=round_duration,
+                consensus_reached=round_result.get("consensus_reached", False)
             )
             
-            debate_history.append(round_result)
-            revised_positions = round_result["revised_positions"]
-            
-            # Check if consensus reached
+            # Check if consensus reached naturally
             if round_result["consensus_reached"]:
-                logger.info("debate_consensus_reached", debate_id=debate_id, round=round_num)
+                logger.info("debate_consensus_reached_naturally", debate_id=debate_id, round=round_num)
                 break
+        
+        # Safeguard 3: Force consensus if max rounds reached
+        if not forced_consensus and len(debate_history) >= self.max_rounds:
+            if self.enable_forced_consensus:
+                forced_consensus = True
+                logger.warning(
+                    "forced_consensus_max_rounds_reached",
+                    debate_id=debate_id,
+                    max_rounds=self.max_rounds
+                )
         
         # Final assessment
         consensus_reached, confidence, resolution_summary = self._assess_final_consensus(
@@ -97,6 +193,9 @@ class DebateEngine:
             initial_positions=disagreement.positions,
             final_positions=revised_positions,
             debate_history=debate_history,
+            forced=forced_consensus,
+            timeout_occurred=timeout_occurred,
+            repetition_detected=repetition_detected,
             context=context,
             model=model
         )
@@ -117,6 +216,9 @@ class DebateEngine:
             debate_id=debate_id,
             rounds=len(debate_history),
             consensus_reached=consensus_reached,
+            forced_consensus=forced_consensus,
+            timeout_occurred=timeout_occurred,
+            repetition_detected=repetition_detected,
             confidence=confidence
         )
         
@@ -200,22 +302,37 @@ Return ONLY a JSON object:
         initial_positions: dict,
         final_positions: dict,
         debate_history: list,
+        forced: bool,
+        timeout_occurred: bool,
+        repetition_detected: bool,
         context: str,
         model: str
     ) -> tuple[bool, float, str]:
         """
         Assess whether consensus was reached and compute confidence.
         
+        Args:
+            disagreement: Original disagreement
+            initial_positions: Starting positions
+            final_positions: Final positions after debate
+            debate_history: List of debate rounds
+            forced: Whether consensus was forced by safeguards
+            timeout_occurred: Whether a timeout occurred
+            repetition_detected: Whether repetition was detected
+            context: Design context
+            model: LLM model used
+        
         Returns:
             (consensus_reached, confidence_score, summary)
         """
-        # Simple heuristic: if positions converged significantly, consensus reached
+        # Measure convergence
         convergence = self._measure_convergence(initial_positions, final_positions)
         
-        # Consensus reached if:
-        # 1. Explicit consensus in last round, OR
-        # 2. High convergence (>0.7)
+        # Determine consensus
         consensus_reached = False
+        confidence = convergence
+        
+        # Check for natural consensus first
         if debate_history:
             last_round = debate_history[-1]
             consensus_reached = last_round.get("consensus_reached", False)
@@ -223,11 +340,29 @@ Return ONLY a JSON object:
         if not consensus_reached and convergence > 0.7:
             consensus_reached = True
         
-        confidence = convergence
+        # Handle forced consensus
+        if forced:
+            consensus_reached = True
+            confidence = max(0.5, confidence)  # Lower confidence for forced consensus
         
-        # Generate summary
+        # Generate summary with safeguard context
         if consensus_reached:
-            summary = f"Consensus reached after {len(debate_history)} round(s). Agents converged on a unified approach."
+            if forced:
+                reasons = []
+                if timeout_occurred:
+                    reasons.append("timeout")
+                if repetition_detected:
+                    reasons.append("repetitive arguments")
+                if len(debate_history) >= self.max_rounds:
+                    reasons.append("max rounds reached")
+                
+                reason_str = ", ".join(reasons) if reasons else "safeguards"
+                summary = (
+                    f"Forced consensus after {len(debate_history)} round(s) due to {reason_str}. "
+                    f"Confidence: {confidence:.2f}. Proceeding with best available resolution."
+                )
+            else:
+                summary = f"Natural consensus reached after {len(debate_history)} round(s). Agents converged on a unified approach."
         else:
             summary = f"No consensus after {len(debate_history)} round(s). Requires adjudication."
         
@@ -258,6 +393,39 @@ Return ONLY a JSON object:
         
         return overlap / total
     
+    def _calculate_position_similarity(self, positions1: dict, positions2: dict) -> float:
+        """
+        Calculate similarity between two sets of positions for repetition detection.
+        
+        Uses sequence matching to detect if arguments are repeating.
+        
+        Args:
+            positions1: First set of positions
+            positions2: Second set of positions
+            
+        Returns:
+            Similarity score 0-1, where 1 is identical
+        """
+        if not positions1 or not positions2:
+            return 0.0
+        
+        # Compare each agent's position
+        similarities = []
+        for agent in set(positions1.keys()) | set(positions2.keys()):
+            pos1 = positions1.get(agent, "")
+            pos2 = positions2.get(agent, "")
+            
+            if not pos1 or not pos2:
+                similarities.append(0.0)
+                continue
+            
+            # Use SequenceMatcher for text similarity
+            matcher = SequenceMatcher(None, pos1.lower(), pos2.lower())
+            similarities.append(matcher.ratio())
+        
+        # Return average similarity
+        return sum(similarities) / len(similarities) if similarities else 0.0
+    
     def _format_positions(self, positions: dict) -> str:
         """Format agent positions for prompt."""
         formatted = []
@@ -270,21 +438,21 @@ async def run_debate(
     disagreement: Disagreement,
     context: str,
     model: Optional[str] = None,
-    max_rounds: int = 2
+    max_rounds: Optional[int] = None
 ) -> DebateOutcome:
     """
-    Run a debate for a single disagreement.
+    Run a debate for a single disagreement with stability safeguards.
     
-    Convenience function for debate execution.
+    Convenience function for debate execution. Uses settings for max_rounds if not provided.
     
     Args:
         disagreement: Disagreement to resolve
         context: Design context
         model: Optional model override
-        max_rounds: Maximum debate rounds
+        max_rounds: Maximum debate rounds (uses settings if None)
         
     Returns:
-        DebateOutcome with resolution
+        DebateOutcome with resolution (may include forced consensus)
     """
     engine = DebateEngine(max_rounds=max_rounds, model=model)
     return await engine.facilitate_debate(disagreement, context)
@@ -294,33 +462,37 @@ async def run_debates_parallel(
     disagreements: List[Disagreement],
     context: str,
     model: Optional[str] = None,
-    max_rounds: int = 2
+    max_rounds: Optional[int] = None
 ) -> List[DebateOutcome]:
     """
-    Run multiple debates in parallel.
+    Run multiple debates in parallel with stability safeguards.
     
     Args:
         disagreements: List of disagreements to resolve
         context: Design context
         model: Optional model override
-        max_rounds: Maximum debate rounds
+        max_rounds: Maximum debate rounds (uses settings if None)
         
     Returns:
-        List of DebateOutcome results
+        List of DebateOutcome results (may include forced consensus)
     """
     if not disagreements:
         return []
     
     logger.info("debates_parallel_started", count=len(disagreements))
     
-    # Create debate tasks
+    # Create debate tasks with timeout protection
     tasks = [
         run_debate(disagreement, context, model, max_rounds)
         for disagreement in disagreements
     ]
     
-    # Execute in parallel
-    outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+    # Execute in parallel with overall timeout
+    try:
+        outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+    except Exception as e:
+        logger.error("debates_parallel_failed", error=str(e))
+        return []
     
     # Filter out exceptions
     valid_outcomes = []
@@ -330,7 +502,12 @@ async def run_debates_parallel(
         else:
             valid_outcomes.append(outcome)
     
-    logger.info("debates_parallel_completed", completed=len(valid_outcomes), failed=len(disagreements) - len(valid_outcomes))
+    logger.info(
+        "debates_parallel_completed",
+        completed=len(valid_outcomes),
+        failed=len(disagreements) - len(valid_outcomes),
+        total=len(disagreements)
+    )
     
     return valid_outcomes
 

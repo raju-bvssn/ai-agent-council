@@ -94,6 +94,38 @@ GEMINI_MODELS = {
         recommended_temperature=0.7,
         cost_per_1k_tokens=0.0,
     ),
+    "gemini-flash-latest": ModelInfo(
+        name="gemini-flash-latest",
+        display_name="Gemini Flash (Latest Stable)",
+        provider="google",
+        max_tokens=8192,
+        context_window=1048576,
+        capabilities=[
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.JSON_MODE,
+            ModelCapability.FUNCTION_CALLING,
+            ModelCapability.VISION,
+            ModelCapability.LONG_CONTEXT,
+        ],
+        recommended_temperature=0.7,
+        cost_per_1k_tokens=0.0,
+    ),
+    "gemini-pro-latest": ModelInfo(
+        name="gemini-pro-latest",
+        display_name="Gemini Pro (Latest Stable)",
+        provider="google",
+        max_tokens=8192,
+        context_window=2097152,
+        capabilities=[
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.JSON_MODE,
+            ModelCapability.FUNCTION_CALLING,
+            ModelCapability.VISION,
+            ModelCapability.LONG_CONTEXT,
+        ],
+        recommended_temperature=0.7,
+        cost_per_1k_tokens=0.0,
+    ),
 }
 
 

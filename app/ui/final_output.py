@@ -163,6 +163,10 @@ def render_final_output(session_id: str):
                 # If not JSON, display as plain text
                 st.write(final_architecture_rationale)
 
+        # Phase 3C: Architecture Deliverables Bundle
+        st.divider()
+        _render_deliverables_bundle(session_id, session_data)
+
         # Session Summary
         st.divider()
         _render_session_summary(session_data)
@@ -187,6 +191,194 @@ def render_final_output(session_id: str):
     except Exception as e:
         st.error(f"Failed to load final output: {str(e)}")
         logger.error("ui_final_output_failed", error=str(e), session_id=session_id)
+
+
+def _render_deliverables_bundle(session_id: str, session_data: dict):
+    """
+    Render Phase 3C deliverables bundle.
+    
+    Displays architecture summary, decision records, risks, FAQs, and diagrams
+    from the comprehensive deliverables bundle.
+    
+    Args:
+        session_id: Session ID
+        session_data: Session data dict
+    """
+    st.subheader("📄 Final Architecture Deliverables")
+    
+    # Check if deliverables are available
+    deliverables = session_data.get("deliverables")
+    
+    if not deliverables:
+        st.info("⏳ Deliverables are being generated... They will appear once the workflow completes.")
+        return
+    
+    # Tab layout for deliverables sections
+    tabs = st.tabs([
+        "📋 Summary",
+        "🎯 Decisions",
+        "⚠️ Risks",
+        "❓ FAQ",
+        "📊 Diagrams",
+        "📄 Full Report"
+    ])
+    
+    # Tab 1: Architecture Summary
+    with tabs[0]:
+        arch_summary = deliverables.get("architecture_summary", {})
+        
+        st.markdown("### Architecture Overview")
+        st.write(arch_summary.get("overview", "No overview available"))
+        
+        st.markdown("### Key Capabilities")
+        capabilities = arch_summary.get("key_capabilities", [])
+        if capabilities:
+            for cap in capabilities:
+                st.markdown(f"- ✅ {cap}")
+        else:
+            st.info("No key capabilities documented")
+        
+        st.markdown("### Non-Functional Highlights")
+        nfr_highlights = arch_summary.get("non_functional_highlights", [])
+        if nfr_highlights:
+            for nfr in nfr_highlights:
+                st.markdown(f"- 🎯 {nfr}")
+        else:
+            st.info("No NFR highlights documented")
+    
+    # Tab 2: Key Design Decisions (ADR-style)
+    with tabs[1]:
+        st.markdown("### Architecture Decision Records")
+        decisions = deliverables.get("decisions", [])
+        
+        if decisions:
+            for decision in decisions:
+                with st.expander(f"**{decision.get('id')}**: {decision.get('title')}", expanded=False):
+                    st.markdown("**Context:**")
+                    st.write(decision.get("context", "N/A"))
+                    
+                    st.markdown("**Decision:**")
+                    st.info(decision.get("decision", "N/A"))
+                    
+                    st.markdown("**Rationale:**")
+                    st.write(decision.get("rationale", "N/A"))
+                    
+                    st.markdown("**Consequences:**")
+                    st.write(decision.get("consequences", "N/A"))
+        else:
+            st.info("No decision records available")
+    
+    # Tab 3: Risks & Mitigations
+    with tabs[2]:
+        st.markdown("### Technical Risks & Mitigation Strategies")
+        risks = deliverables.get("risks", [])
+        
+        if risks:
+            # Create a table for risks
+            risk_data = []
+            for risk in risks:
+                risk_data.append({
+                    "ID": risk.get("id", "N/A"),
+                    "Description": risk.get("description", "N/A")[:60] + "...",
+                    "Impact": risk.get("impact", "N/A").upper(),
+                    "Likelihood": risk.get("likelihood", "N/A").upper(),
+                })
+            
+            # Display table
+            st.table(risk_data)
+            
+            # Display detailed view
+            st.markdown("#### Detailed Mitigation Plans")
+            for risk in risks:
+                with st.expander(f"{risk.get('id')}: {risk.get('description', 'Risk')[:50]}..."):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        impact_color = {
+                            "low": "🟢",
+                            "medium": "🟡",
+                            "high": "🟠",
+                            "critical": "🔴"
+                        }.get(risk.get("impact", "").lower(), "⚪")
+                        st.metric("Impact", f"{impact_color} {risk.get('impact', 'N/A').title()}")
+                    with col2:
+                        likelihood_color = {
+                            "low": "🟢",
+                            "medium": "🟡",
+                            "high": "🔴"
+                        }.get(risk.get("likelihood", "").lower(), "⚪")
+                        st.metric("Likelihood", f"{likelihood_color} {risk.get('likelihood', 'N/A').title()}")
+                    
+                    st.markdown("**Full Description:**")
+                    st.write(risk.get("description", "N/A"))
+                    
+                    st.markdown("**Mitigation Strategy:**")
+                    st.success(risk.get("mitigation", "N/A"))
+                    
+                    if risk.get("owner"):
+                        st.caption(f"Owner: {risk['owner']}")
+        else:
+            st.info("No risks documented")
+    
+    # Tab 4: FAQ
+    with tabs[3]:
+        st.markdown("### Frequently Asked Questions for Architecture Review")
+        faqs = deliverables.get("faqs", [])
+        
+        if faqs:
+            for idx, faq in enumerate(faqs, 1):
+                with st.expander(f"**Q{idx}:** {faq.get('question', 'Question')}"):
+                    st.write(faq.get("answer", "N/A"))
+                    if faq.get("source"):
+                        st.caption(f"Source: {faq['source']}")
+        else:
+            st.info("No FAQ entries available")
+    
+    # Tab 5: Diagrams
+    with tabs[4]:
+        st.markdown("### Architecture Diagrams")
+        diagrams = deliverables.get("diagrams", [])
+        
+        if diagrams:
+            for diagram in diagrams:
+                st.markdown(f"#### {diagram.get('title', 'Diagram')}")
+                st.caption(f"Type: {diagram.get('diagram_type', 'unknown')}")
+                st.write(diagram.get("description", ""))
+                
+                # Show Lucid link if available
+                if diagram.get("lucid_url"):
+                    st.markdown(f"[🔗 Open in Lucid]({diagram['lucid_url']})")
+                
+                # Show Mermaid source if available
+                elif diagram.get("mermaid_source"):
+                    st.markdown("**Diagram Source (Mermaid):**")
+                    st.code(diagram.get("mermaid_source"), language="mermaid")
+                    st.caption("💡 Copy this code to visualize in Mermaid Live Editor or documentation")
+                else:
+                    st.info("Diagram source not available")
+                
+                st.divider()
+        else:
+            st.info("No diagrams available")
+    
+    # Tab 6: Full Markdown Report
+    with tabs[5]:
+        st.markdown("### Complete Markdown Report")
+        markdown_report = deliverables.get("markdown_report", "")
+        
+        if markdown_report:
+            # Display report in code block
+            st.code(markdown_report, language="markdown")
+            
+            # Download button
+            st.download_button(
+                label="📥 Download Markdown Report",
+                data=markdown_report,
+                file_name=f"architecture_deliverables_{session_id}.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
+        else:
+            st.warning("Markdown report not generated")
 
 
 def _render_export_options(session_data: dict):

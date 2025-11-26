@@ -25,6 +25,9 @@ from app.graph.phase3b_nodes import (
     debate_cycle_node,
     detect_disagreements_node,
 )
+from app.graph.phase3c_nodes import (
+    generate_deliverables_node,
+)
 from app.graph.state_models import (
     AgentRole,
     HumanAction,
@@ -80,6 +83,7 @@ def create_workflow_graph() -> StateGraph:
 
     workflow.add_node("human_approval", human_approval_node)
     workflow.add_node("faq_generation", faq_generation_node)
+    workflow.add_node("generate_deliverables", generate_deliverables_node)  # Phase 3C
     workflow.add_node("finalize", finalize_node)
 
     # Set entry point
@@ -199,8 +203,11 @@ def create_workflow_graph() -> StateGraph:
         }
     )
 
-    # FAQ Generation → Finalize
-    workflow.add_edge("faq_generation", "finalize")
+    # FAQ Generation → Generate Deliverables (Phase 3C)
+    workflow.add_edge("faq_generation", "generate_deliverables")
+    
+    # Generate Deliverables → Finalize (Phase 3C)
+    workflow.add_edge("generate_deliverables", "finalize")
 
     # Finalize → END
     workflow.add_edge("finalize", END)

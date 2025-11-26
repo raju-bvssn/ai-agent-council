@@ -176,6 +176,9 @@ def architect_adjudicator_node(state: WorkflowState) -> Dict[str, Any]:
     """
     Architect Adjudicator makes final decisions on unresolved conflicts.
     
+    Stability Safeguard: This node runs at most once per session to prevent
+    infinite adjudication loops. If already run, returns existing results.
+    
     Args:
         state: Current workflow state
         
@@ -183,6 +186,34 @@ def architect_adjudicator_node(state: WorkflowState) -> Dict[str, Any]:
         State updates with adjudication results
     """
     logger.info("executing_architect_adjudicator_node", session_id=state.session_id)
+    
+    # Safeguard: Check adjudicator run count (run-once guarantee)
+    from app.utils.settings import get_settings
+    settings = get_settings()
+    
+    adjudicator_run_count = state.metadata.get("adjudicator_run_count", 0)
+    
+    if state.adjudication_complete or adjudicator_run_count >= settings.adjudicator_max_runs:
+        logger.warning(
+            "adjudicator_already_run",
+            session_id=state.session_id,
+            run_count=adjudicator_run_count,
+            max_runs=settings.adjudicator_max_runs,
+            message="Adjudicator has already run. Skipping to prevent infinite loop."
+        )
+        return {
+            "final_architecture_rationale": state.final_architecture_rationale,
+            "adjudication_complete": True,
+            "warnings": state.warnings + [f"Adjudicator node called {adjudicator_run_count + 1} time(s) - using cached results"]
+        }
+    
+    # Increment run count
+    state.metadata["adjudicator_run_count"] = adjudicator_run_count + 1
+    logger.info(
+        "adjudicator_run_count_incremented",
+        session_id=state.session_id,
+        count=state.metadata["adjudicator_run_count"]
+    )
     
     # Create Architect Adjudicator agent
     agent = AgentFactory.create_agent(AgentRole.ARCHITECT_ADJUDICATOR)
