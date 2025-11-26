@@ -316,6 +316,10 @@ class WorkflowState(BaseModel):
     # Phase 3C: Deliverables
     deliverables: Optional[DeliverablesBundle] = None
 
+    # LangSmith tracing
+    langsmith_run_id: Optional[str] = None
+    langsmith_trace_url: Optional[str] = None
+
     # Metadata
     metadata: dict[str, Any] = Field(default_factory=dict)
 
