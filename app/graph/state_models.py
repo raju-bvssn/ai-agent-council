@@ -19,11 +19,25 @@ class Concern(BaseModel):
     description: str
     severity: str = "medium"
     
+    class Config:
+        """Pydantic configuration."""
+        json_encoders = {
+            str: str
+        }
+    
     def __str__(self) -> str:
         """Return string representation for display and logging."""
         if self.area:
             return f"{self.area}: {self.description}"
         return self.description
+    
+    def dict(self, **kwargs):
+        """Override dict to return string representation for JSON serialization."""
+        return str(self)
+    
+    def model_dump(self, **kwargs):
+        """Override model_dump to return string representation."""
+        return str(self)
 
 
 class Suggestion(BaseModel):
@@ -32,11 +46,25 @@ class Suggestion(BaseModel):
     suggestion: str
     priority: Optional[str] = None
     
+    class Config:
+        """Pydantic configuration."""
+        json_encoders = {
+            str: str
+        }
+    
     def __str__(self) -> str:
         """Return string representation for display and logging."""
         if self.area:
             return f"{self.area}: {self.suggestion}"
         return self.suggestion
+    
+    def dict(self, **kwargs):
+        """Override dict to return string representation for JSON serialization."""
+        return str(self)
+    
+    def model_dump(self, **kwargs):
+        """Override model_dump to return string representation."""
+        return str(self)
 
 
 class WorkflowStatus(str, Enum):
