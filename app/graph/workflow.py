@@ -282,9 +282,11 @@ def compile_workflow() -> Any:
     # TODO: Phase 2+ - Add LangSmith tracing configuration
     # TODO: Phase 2+ - Add checkpointing for state persistence
     
-    compiled = graph.compile()
+    # Increase recursion limit for complex multi-agent workflows
+    # Default is 25, but full debate/consensus/adjudication cycles need more
+    compiled = graph.compile(recursion_limit=100)
 
-    logger.info("workflow_compiled")
+    logger.info("workflow_compiled", recursion_limit=100)
 
     return compiled
 
