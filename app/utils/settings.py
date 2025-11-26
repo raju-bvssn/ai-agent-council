@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     
     # Debate Engine Stability (Phase 3C+)
     max_debate_rounds: int = Field(default=3, description="Maximum debate rounds per disagreement", ge=1, le=10)
-    debate_round_timeout: int = Field(default=15, description="Wall-clock timeout per debate round (seconds)", gt=0)
+    debate_round_timeout: int = Field(default=30, description="Wall-clock timeout per debate round (seconds)", gt=0)
     enable_repetition_detection: bool = Field(default=True, description="Detect and stop repetitive debate arguments")
     repetition_similarity_threshold: float = Field(default=0.85, description="Similarity threshold for repetition detection", ge=0.5, le=1.0)
     enable_forced_consensus: bool = Field(default=True, description="Force consensus after max rounds or timeout")

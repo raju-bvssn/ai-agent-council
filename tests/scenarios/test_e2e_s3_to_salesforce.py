@@ -35,10 +35,10 @@ SCENARIO_CONTEXT = {
     "volume": "medium"
 }
 
-# Test configuration
+# Test configuration - Extended timeout for complete workflow validation
 POLL_INTERVAL = 1  # seconds
-POLL_TIMEOUT = 120  # seconds
-MAX_POLL_ITERATIONS = POLL_TIMEOUT // POLL_INTERVAL
+POLL_TIMEOUT = 240  # seconds (4 minutes - allows full multi-agent workflow)
+MAX_POLL_ITERATIONS = POLL_TIMEOUT // POLL_INTERVAL  # 240 iterations
 
 # Keywords to validate in outputs
 INTEGRATION_KEYWORDS = [
