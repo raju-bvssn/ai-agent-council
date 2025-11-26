@@ -62,6 +62,18 @@ def render_feedback_panel(session_id: str):
         
         st.markdown("<br>", unsafe_allow_html=True)
         
+        # LangSmith trace link (POC)
+        langsmith_trace_url = session_data.get("langsmith_trace_url")
+        if langsmith_trace_url:
+            render_slds_card("🔍 Execution Trace")
+            st.markdown("""
+            **View Complete Execution Trace**  
+            See the full workflow execution graph with agent interactions and decisions:
+            """)
+            st.markdown(f"[Open in LangSmith →]({langsmith_trace_url})", unsafe_allow_html=True)
+            close_slds_card()
+            st.markdown("<br>", unsafe_allow_html=True)
+        
         # Phase 3B: Display debate & consensus status
         _render_phase3b_status(session_data)
         

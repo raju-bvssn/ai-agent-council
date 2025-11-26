@@ -19,6 +19,15 @@ from app.graph import (
 from app.utils.exceptions import WorkflowException
 from app.utils.logging import get_logger
 
+# LangSmith tracing (optional POC)
+try:
+    from langsmith import traceable
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if not args else decorator(args[0])
+
 logger = get_logger(__name__)
 
 # Create workflow router
@@ -39,6 +48,7 @@ class HumanActionRequest(BaseModel):
 # Endpoints
 
 @workflow_router.post("/{session_id}/start")
+@traceable(name="api_start_workflow")
 async def start_workflow(session_id: str):
     """
     Start council workflow execution.

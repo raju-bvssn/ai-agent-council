@@ -24,6 +24,15 @@ from app.api.schemas import (
 from app.utils.exceptions import AgentCouncilException, SessionNotFoundException
 from app.utils.logging import get_logger
 
+# LangSmith tracing (optional POC)
+try:
+    from langsmith import traceable
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if not args else decorator(args[0])
+
 logger = get_logger(__name__)
 
 # Create routers
@@ -62,6 +71,7 @@ async def health_check():
 
 # Session endpoints
 @session_router.post("", response_model=SessionResponse, status_code=201)
+@traceable(name="api_create_session")
 async def create_session(request: CreateSessionRequest):
     """Create a new council session."""
     try:
@@ -129,6 +139,7 @@ async def execute_workflow(request: WorkflowExecutionRequest):
 
 
 @workflow_router.get("/{session_id}/status", response_model=WorkflowExecutionResponse)
+@traceable(name="api_get_workflow_status")
 async def get_workflow_status(session_id: str):
     """Get workflow execution status."""
     try:

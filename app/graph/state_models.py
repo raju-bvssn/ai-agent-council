@@ -296,6 +296,10 @@ class WorkflowResult(BaseModel):
     max_revisions: int = 3
     human_approved: bool = False
     
+    # LangSmith tracing (POC)
+    langsmith_run_id: Optional[str] = None
+    langsmith_trace_url: Optional[str] = None
+    
     # Phase 3B: Model selection
     selected_model: Optional[str] = None
     auto_model: bool = True
@@ -315,6 +319,10 @@ class WorkflowResult(BaseModel):
     error: Optional[str] = None
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    
+    # LangSmith tracing (POC)
+    langsmith_run_id: Optional[str] = None
+    langsmith_trace_url: Optional[str] = None
     
     @classmethod
     def from_workflow_state(cls, state: WorkflowState, current_node: Optional[str] = None) -> "WorkflowResult":
@@ -371,6 +379,9 @@ class WorkflowResult(BaseModel):
             error=state.errors[-1] if state.errors else None,
             errors=state.errors,
             warnings=state.warnings,
+            # LangSmith tracing (POC)
+            langsmith_run_id=state.langsmith_run_id,
+            langsmith_trace_url=state.langsmith_trace_url,
         )
     
     class Config:

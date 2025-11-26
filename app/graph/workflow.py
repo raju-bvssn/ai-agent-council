@@ -386,6 +386,15 @@ def run_council_workflow(session_id: str) -> WorkflowResult:
         persistence = get_persistence_manager()
         state = persistence.load_state(session_id)
         
+        # Capture LangSmith run_id for tracing (POC)
+        from app.observability import get_current_run_id, get_trace_url, is_tracing_enabled
+        if is_tracing_enabled():
+            run_id = get_current_run_id()
+            if run_id:
+                state.langsmith_run_id = run_id
+                state.langsmith_trace_url = get_trace_url(run_id)
+                logger.info("langsmith_trace_captured", run_id=run_id, session_id=session_id)
+        
         # Validate not already running
         if state.status == WorkflowStatus.IN_PROGRESS:
             logger.warning("workflow_already_running", session_id=session_id)
