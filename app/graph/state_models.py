@@ -279,7 +279,7 @@ class WorkflowState(BaseModel):
     # Session management
     session_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Annotated[datetime, lambda x, y: max(x, y) if x and y else x or y] = Field(default_factory=datetime.utcnow)
     status: WorkflowStatus = Field(default=WorkflowStatus.PENDING)
 
     # User input
