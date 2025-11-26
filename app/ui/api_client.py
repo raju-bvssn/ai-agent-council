@@ -2,37 +2,131 @@
 API Client for Streamlit UI.
 
 Provides clean interface to FastAPI backend with error handling.
+Supports Streamlit secrets and environment variables for configuration.
 """
 
+import os
 import requests
 from typing import Any, Dict, Optional
+from time import sleep
 
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
+def get_api_base_url_from_env() -> str:
+    """
+    Get API base URL from environment with fallback chain.
+    
+    Priority:
+    1. Streamlit secrets (if available)
+    2. Environment variable API_BASE_URL
+    3. Default localhost
+    
+    Returns:
+        API base URL
+    """
+    # Try Streamlit secrets first
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and 'API_BASE_URL' in st.secrets:
+            url = st.secrets['API_BASE_URL']
+            logger.info("api_url_from_streamlit_secrets", url=url)
+            return url
+    except Exception:
+        pass  # Streamlit not available or secrets not configured
+    
+    # Try environment variable
+    url = os.getenv('API_BASE_URL')
+    if url:
+        logger.info("api_url_from_environment", url=url)
+        return url
+    
+    # Default
+    default_url = "http://localhost:8000"
+    logger.info("api_url_default", url=default_url)
+    return default_url
+
+
 class APIClient:
     """
     Client for Agent Council API.
     
-    Handles all HTTP communication with FastAPI backend.
+    Handles all HTTP communication with FastAPI backend with retry logic.
     """
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        max_retries: int = 3,
+        retry_delay: float = 1.0
+    ):
         """
         Initialize API client.
         
         Args:
-            base_url: Base URL for API (default: http://localhost:8000)
+            base_url: Base URL for API (defaults to get_api_base_url_from_env())
+            max_retries: Maximum retry attempts for failed requests
+            retry_delay: Delay in seconds between retries
         """
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (base_url or get_api_base_url_from_env()).rstrip("/")
         self.api_prefix = "/api/v1"
         self.timeout = 30
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        
+        logger.info("api_client_initialized", base_url=self.base_url)
         
     def _url(self, path: str) -> str:
         """Build full URL for API endpoint."""
         return f"{self.base_url}{self.api_prefix}{path}"
+    
+    def _retry_request(self, method: str, url: str, **kwargs) -> requests.Response:
+        """
+        Execute HTTP request with retry logic.
+        
+        Args:
+            method: HTTP method (get, post, put, delete)
+            url: Full URL
+            **kwargs: Additional arguments for requests
+            
+        Returns:
+            Response object
+            
+        Raises:
+            Exception: If all retries fail
+        """
+        last_exception = None
+        
+        for attempt in range(self.max_retries):
+            try:
+                response = getattr(requests, method)(url, **kwargs)
+                return response
+            except requests.exceptions.ConnectionError as e:
+                last_exception = e
+                logger.warning(
+                    "api_connection_error_retry",
+                    attempt=attempt + 1,
+                    max_retries=self.max_retries,
+                    error=str(e)
+                )
+                if attempt < self.max_retries - 1:
+                    sleep(self.retry_delay * (attempt + 1))  # Exponential backoff
+            except requests.exceptions.Timeout as e:
+                last_exception = e
+                logger.warning(
+                    "api_timeout_retry",
+                    attempt=attempt + 1,
+                    max_retries=self.max_retries
+                )
+                if attempt < self.max_retries - 1:
+                    sleep(self.retry_delay)
+        
+        # All retries failed
+        error_msg = f"API unreachable after {self.max_retries} attempts: {str(last_exception)}"
+        logger.error("api_all_retries_failed", error=error_msg)
+        raise Exception(error_msg)
     
     def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
         """
@@ -66,7 +160,8 @@ class APIClient:
     
     def health_check(self) -> Dict[str, Any]:
         """Check API health."""
-        response = requests.get(
+        response = self._retry_request(
+            "get",
             self._url("/health"),
             timeout=self.timeout
         )
@@ -98,7 +193,8 @@ class APIClient:
             "user_context": user_context or {}
         }
         
-        response = requests.post(
+        response = self._retry_request(
+            "post",
             self._url("/sessions"),
             json=payload,
             timeout=self.timeout
@@ -116,7 +212,8 @@ class APIClient:
         Returns:
             Full session data
         """
-        response = requests.get(
+        response = self._retry_request(
+            "get",
             self._url(f"/sessions/{session_id}"),
             timeout=self.timeout
         )
@@ -134,7 +231,8 @@ class APIClient:
         Returns:
             Session list
         """
-        response = requests.get(
+        response = self._retry_request(
+            "get",
             self._url(f"/sessions?limit={limit}&offset={offset}"),
             timeout=self.timeout
         )
@@ -148,7 +246,8 @@ class APIClient:
         Args:
             session_id: Session ID to delete
         """
-        response = requests.delete(
+        response = self._retry_request(
+            "delete",
             self._url(f"/sessions/{session_id}"),
             timeout=self.timeout
         )
@@ -166,7 +265,8 @@ class APIClient:
         Returns:
             WorkflowResult with current status
         """
-        response = requests.post(
+        response = self._retry_request(
+            "post",
             self._url(f"/workflow/{session_id}/start"),
             timeout=60  # Workflow starts in background
         )
@@ -183,7 +283,8 @@ class APIClient:
         Returns:
             Workflow status
         """
-        response = requests.get(
+        response = self._retry_request(
+            "get",
             self._url(f"/workflow/{session_id}/status"),
             timeout=self.timeout
         )
@@ -205,7 +306,8 @@ class APIClient:
             "comment": feedback
         }
         
-        response = requests.post(
+        response = self._retry_request(
+            "post",
             self._url(f"/workflow/{session_id}/approve"),
             json=payload,
             timeout=60
@@ -228,7 +330,8 @@ class APIClient:
             "comment": feedback
         }
         
-        response = requests.post(
+        response = self._retry_request(
+            "post",
             self._url(f"/workflow/{session_id}/revise"),
             json=payload,
             timeout=60
@@ -247,7 +350,8 @@ class APIClient:
         Returns:
             Status message with count
         """
-        response = requests.post(
+        response = self._retry_request(
+            "post",
             self._url("/admin/clear-sessions"),
             timeout=self.timeout
         )
@@ -263,7 +367,8 @@ class APIClient:
         Returns:
             Status message
         """
-        response = requests.post(
+        response = self._retry_request(
+            "post",
             self._url("/admin/reset-database"),
             timeout=self.timeout
         )
@@ -277,7 +382,8 @@ class APIClient:
         Returns:
             System statistics
         """
-        response = requests.get(
+        response = self._retry_request(
+            "get",
             self._url("/admin/stats"),
             timeout=self.timeout
         )
@@ -287,13 +393,19 @@ class APIClient:
 
 def get_api_client(base_url: Optional[str] = None) -> APIClient:
     """
-    Get API client instance.
+    Get API client instance with automatic URL detection.
+    
+    URL resolution priority:
+    1. Explicitly provided base_url parameter
+    2. Streamlit secrets
+    3. Environment variable API_BASE_URL
+    4. Default localhost:8000
     
     Args:
-        base_url: Optional custom base URL
+        base_url: Optional custom base URL (overrides all)
         
     Returns:
-        APIClient instance
+        APIClient instance configured for current environment
     """
-    return APIClient(base_url=base_url or "http://localhost:8000")
+    return APIClient(base_url=base_url)
 

@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from app.tools.base_tool import BaseTool, with_timeout, with_retry
 from app.tools.schemas import ToolResult
+from app.utils.settings import get_settings
 
 
 class MCPClient(BaseTool):
@@ -39,13 +40,18 @@ class MCPClient(BaseTool):
             config: Optional configuration including API endpoint and credentials
         """
         super().__init__(config)
+        settings = get_settings()
+        
         self.api_key = self.config.get("api_key") or os.getenv("MCP_API_KEY")
         self.org_id = self.config.get("org_id") or os.getenv("MCP_ORG_ID")
         self.endpoint = self.config.get("endpoint") or os.getenv("MCP_ENDPOINT", "https://anypoint.mulesoft.com")
-        self.use_mock = not self.api_key  # Use mock data if no API key
+        
+        # Use mock mode if DEMO_MODE is enabled or no API key
+        self.use_mock = settings.demo_mode or not self.api_key
         
         if self.use_mock:
-            self.logger.warning("mcp_mock_mode", reason="No API key found, using mock data")
+            reason = "DEMO_MODE enabled" if settings.demo_mode else "No API key found"
+            self.logger.warning("mcp_mock_mode", reason=f"{reason}, using mock data")
     
     @with_timeout(seconds=30)
     @with_retry(max_attempts=3)

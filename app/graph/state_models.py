@@ -289,11 +289,27 @@ class WorkflowResult(BaseModel):
     # FAQ and rationale
     faq_entries: list[dict[str, str]] = Field(default_factory=list)
     decision_rationale: str = ""
+    final_architecture_rationale: Optional[str] = None
     
     # Metadata
     revision_count: int = 0
     max_revisions: int = 3
     human_approved: bool = False
+    
+    # Phase 3B: Model selection
+    selected_model: Optional[str] = None
+    auto_model: bool = True
+    models_used: dict[str, str] = Field(default_factory=dict)
+    
+    # Phase 3B: Debate and consensus
+    current_round: int = 0
+    total_disagreements: int = 0
+    total_debates: int = 0
+    debates_resolved: int = 0
+    consensus_confidence: Optional[float] = None
+    consensus_summary: Optional[str] = None
+    requires_adjudication: bool = False
+    adjudication_complete: bool = False
     
     # Error handling
     error: Optional[str] = None
@@ -312,6 +328,19 @@ class WorkflowResult(BaseModel):
         Returns:
             WorkflowResult for API response
         """
+        # Compute Phase 3B statistics
+        total_disagreements = sum(len(r.disagreements) for r in state.reviewer_rounds)
+        total_debates = len(state.debates)
+        debates_resolved = sum(1 for d in state.debates if d.consensus_reached)
+        
+        # Get latest consensus
+        consensus_confidence = None
+        consensus_summary = None
+        if state.consensus_history:
+            latest = state.consensus_history[-1]
+            consensus_confidence = latest.confidence
+            consensus_summary = latest.summary
+        
         return cls(
             session_id=state.session_id,
             status=state.status,
@@ -322,9 +351,23 @@ class WorkflowResult(BaseModel):
             design=state.current_design,
             faq_entries=state.faq_entries,
             decision_rationale=state.decision_rationale,
+            final_architecture_rationale=state.final_architecture_rationale,
             revision_count=state.revision_count,
             max_revisions=state.max_revisions,
             human_approved=state.human_approved,
+            # Phase 3B fields
+            selected_model=state.selected_model,
+            auto_model=state.auto_model,
+            models_used=state.models_used,
+            current_round=state.current_round,
+            total_disagreements=total_disagreements,
+            total_debates=total_debates,
+            debates_resolved=debates_resolved,
+            consensus_confidence=consensus_confidence,
+            consensus_summary=consensus_summary,
+            requires_adjudication=state.requires_adjudication,
+            adjudication_complete=state.adjudication_complete,
+            # Error handling
             error=state.errors[-1] if state.errors else None,
             errors=state.errors,
             warnings=state.warnings,

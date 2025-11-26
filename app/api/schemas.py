@@ -15,6 +15,9 @@ class HealthResponse(BaseModel):
     status: str = "healthy"
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     version: str = "1.0.0"
+    environment: str = "development"
+    demo_mode: bool = False
+    api_base_url: Optional[str] = None
 
 
 class CreateSessionRequest(BaseModel):

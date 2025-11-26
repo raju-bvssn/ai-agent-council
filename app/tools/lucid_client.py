@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional
 from app.tools.base_tool import BaseTool, with_timeout, with_retry
 from app.tools.schemas import ToolResult
 from app.llm.providers import get_gemini_provider
+from app.utils.settings import get_settings
 
 
 class LucidClient(BaseTool):
@@ -39,12 +40,17 @@ class LucidClient(BaseTool):
             config: Optional configuration including API keys and endpoints
         """
         super().__init__(config)
+        settings = get_settings()
+        
         self.api_key = self.config.get("api_key") or os.getenv("LUCID_API_KEY")
         self.endpoint = self.config.get("endpoint") or os.getenv("LUCID_ENDPOINT")
-        self.use_mock = not self.api_key  # Use Mermaid fallback if no API key
+        
+        # Use mock mode if DEMO_MODE is enabled or no API key
+        self.use_mock = settings.demo_mode or not self.api_key
         
         if self.use_mock:
-            self.logger.warning("lucid_mock_mode", reason="No API key found, using Mermaid fallback")
+            reason = "DEMO_MODE enabled" if settings.demo_mode else "No API key found"
+            self.logger.warning("lucid_mock_mode", reason=f"{reason}, using Mermaid fallback")
     
     @with_timeout(seconds=60)
     @with_retry(max_attempts=2)

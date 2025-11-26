@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from app.tools.base_tool import BaseTool, with_timeout, with_retry
 from app.tools.schemas import ToolResult
 from app.llm.providers import get_gemini_provider
-from app.utils.settings import settings
+from app.utils.settings import get_settings
 
 
 class VibesClient(BaseTool):
@@ -40,12 +40,17 @@ class VibesClient(BaseTool):
             config: Optional configuration including API keys and endpoints
         """
         super().__init__(config)
+        settings = get_settings()
+        
         self.api_key = self.config.get("api_key") or os.getenv("VIBES_API_KEY")
         self.endpoint = self.config.get("endpoint") or os.getenv("VIBES_ENDPOINT")
-        self.use_mock = not self.api_key  # Use Gemini fallback if no API key
+        
+        # Use mock mode if DEMO_MODE is enabled or no API key
+        self.use_mock = settings.demo_mode or not self.api_key
         
         if self.use_mock:
-            self.logger.warning("vibes_mock_mode", reason="No API key found, using Gemini fallback")
+            reason = "DEMO_MODE enabled" if settings.demo_mode else "No API key found"
+            self.logger.warning("vibes_mock_mode", reason=f"{reason}, using Gemini fallback")
     
     @with_timeout(seconds=45)
     @with_retry(max_attempts=3)

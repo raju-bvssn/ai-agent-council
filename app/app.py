@@ -32,8 +32,11 @@ async def lifespan(app: FastAPI):
         "application_configured",
         env=settings.env,
         debug=settings.debug,
+        demo_mode=settings.demo_mode,
         api_host=settings.api_host,
         api_port=settings.api_port,
+        api_base_url=settings.api_base_url,
+        allowed_origins=settings.get_allowed_origins_list(),
     )
 
     yield

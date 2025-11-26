@@ -35,11 +35,22 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0", description="API host")
     api_port: int = Field(default=8000, description="API port")
     api_reload: bool = Field(default=True, description="API auto-reload on code changes")
+    api_base_url: str = Field(
+        default="http://localhost:8000",
+        description="Full backend API URL (for Streamlit UI to connect)"
+    )
     secret_key: str = Field(default="change-me-in-production", description="Secret key for JWT/sessions")
     allowed_origins: str = Field(
-        default="http://localhost:3000,http://localhost:8501",
+        default="http://localhost:3000,http://localhost:8501,*",
         description="Comma-separated CORS allowed origins"
     )
+    
+    # Deployment Configuration
+    demo_mode: bool = Field(
+        default=False,
+        description="Enable demo mode with mock tool responses (no external API calls)"
+    )
+    health_check_enabled: bool = Field(default=True, description="Enable /health endpoint")
 
     # LLM Provider (Google Gemini - Mission Critical Data Compliant)
     google_api_key: str = Field(default="", description="Google Gemini API key")
@@ -107,10 +118,34 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development environment."""
         return self.env == "development"
+    
+    @property
+    def is_demo_mode(self) -> bool:
+        """Check if running in demo mode (mock tool responses)."""
+        return self.demo_mode
 
     def get_allowed_origins_list(self) -> list[str]:
         """Parse comma-separated allowed origins into a list."""
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+    
+    def get_api_base_url(self) -> str:
+        """
+        Get the API base URL for frontend-to-backend communication.
+        
+        Priority:
+        1. Explicitly set api_base_url
+        2. Constructed from api_host and api_port
+        
+        Returns:
+            Full API base URL
+        """
+        if self.api_base_url and self.api_base_url != "http://localhost:8000":
+            return self.api_base_url.rstrip("/")
+        
+        # Construct from host and port
+        protocol = "https" if self.is_production else "http"
+        host = self.api_host if self.api_host != "0.0.0.0" else "localhost"
+        return f"{protocol}://{host}:{self.api_port}"
 
 
 @lru_cache

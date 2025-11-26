@@ -41,9 +41,23 @@ agent_controller = AgentController()
 # Health endpoints
 @health_router.get("", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint."""
-    logger.debug("health_check_request")
-    return HealthResponse()
+    """
+    Health check endpoint.
+    
+    Returns application status, environment, and configuration info.
+    Used by monitoring systems and deployment verification.
+    """
+    from app.utils.settings import get_settings
+    settings = get_settings()
+    
+    logger.debug("health_check_request", environment=settings.env, demo_mode=settings.demo_mode)
+    
+    return HealthResponse(
+        status="healthy",
+        environment=settings.env,
+        demo_mode=settings.demo_mode,
+        api_base_url=settings.api_base_url
+    )
 
 
 # Session endpoints
