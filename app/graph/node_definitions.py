@@ -100,8 +100,8 @@ def solution_architect_node(state: WorkflowState) -> dict[str, Any]:
             {
                 "reviewer": r.reviewer_role.value,
                 "decision": r.decision.value,
-                "concerns": r.concerns,
-                "suggestions": r.suggestions,
+                "concerns": [str(c) for c in r.concerns],
+                "suggestions": [str(s) for s in r.suggestions],
             }
             for r in state.reviews
         ]
@@ -246,8 +246,8 @@ def faq_generation_node(state: WorkflowState) -> dict[str, Any]:
             {
                 "reviewer": r.reviewer_role.value,
                 "decision": r.decision.value,
-                "concerns": r.concerns,
-                "suggestions": r.suggestions,
+                "concerns": [str(c) for c in r.concerns],
+                "suggestions": [str(s) for s in r.suggestions],
             }
             for r in state.reviews
         ],
