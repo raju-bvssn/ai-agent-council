@@ -6,6 +6,7 @@ Implements Factory Pattern for agent instantiation.
 
 from typing import Optional
 
+from app.agents.architect_adjudicator import ArchitectAdjudicatorAgent
 from app.agents.faq_agent import FAQAgent
 from app.agents.master_agent import MasterArchitectAgent
 from app.agents.reviewer_agent import (
@@ -63,6 +64,9 @@ class AgentFactory:
 
         elif agent_role == AgentRole.REVIEWER_INTEGRATION:
             return IntegrationReviewer(llm_provider=llm_provider)
+
+        elif agent_role == AgentRole.ARCHITECT_ADJUDICATOR:
+            return ArchitectAdjudicatorAgent(llm_provider=llm_provider)
 
         elif agent_role == AgentRole.FAQ:
             return FAQAgent(llm_provider=llm_provider)
