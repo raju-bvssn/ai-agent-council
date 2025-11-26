@@ -128,6 +128,40 @@ def render_final_output(session_id: str):
             st.divider()
             st.subheader("📝 Decision Rationale")
             st.write(decision_rationale)
+        
+        # Phase 3B: Final Architecture Rationale (from Adjudicator)
+        final_architecture_rationale = session_data.get("final_architecture_rationale")
+        if final_architecture_rationale:
+            st.divider()
+            st.subheader("⚖️ Architect Adjudicator's Final Rationale")
+            st.info("This section contains the Architect Adjudicator's final decisions and comprehensive rationale for resolving any conflicts.")
+            
+            try:
+                # Try to parse as JSON for structured display
+                rationale_json = json.loads(final_architecture_rationale)
+                
+                # Display final decisions
+                if rationale_json.get("final_decisions"):
+                    st.markdown("### Final Decisions")
+                    for decision in rationale_json["final_decisions"]:
+                        with st.expander(f"🎯 {decision.get('disagreement_topic', 'Decision')}"):
+                            st.markdown(f"**Decision:** {decision.get('decision', 'N/A')}")
+                            st.markdown(f"**Rationale:** {decision.get('rationale', 'N/A')}")
+                
+                # Display architecture rationale
+                if rationale_json.get("architecture_rationale"):
+                    st.markdown("### Overall Architecture Rationale")
+                    st.write(rationale_json["architecture_rationale"])
+                
+                # Display design updates
+                if rationale_json.get("design_updates"):
+                    st.markdown("### Required Design Updates")
+                    for update in rationale_json["design_updates"]:
+                        st.markdown(f"- {update}")
+            
+            except json.JSONDecodeError:
+                # If not JSON, display as plain text
+                st.write(final_architecture_rationale)
 
         # Session Summary
         st.divider()

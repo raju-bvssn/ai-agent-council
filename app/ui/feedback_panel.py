@@ -61,6 +61,11 @@ def render_feedback_panel(session_id: str):
         close_slds_card()
         
         st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Phase 3B: Display debate & consensus status
+        _render_phase3b_status(session_data)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
 
         # Display messages
         if messages:
@@ -217,6 +222,82 @@ def _render_review_card(review):
 
 
 
+def _render_phase3b_status(session_data: dict):
+    """
+    Render Phase 3B status (debate, consensus, model selection).
+    
+    Args:
+        session_data: Session data from API
+    """
+    # Extract Phase 3B fields
+    current_round = session_data.get("current_round", 0)
+    total_disagreements = session_data.get("total_disagreements", 0)
+    total_debates = session_data.get("total_debates", 0)
+    debates_resolved = session_data.get("debates_resolved", 0)
+    consensus_confidence = session_data.get("consensus_confidence")
+    consensus_summary = session_data.get("consensus_summary")
+    requires_adjudication = session_data.get("requires_adjudication", False)
+    adjudication_complete = session_data.get("adjudication_complete", False)
+    selected_model = session_data.get("selected_model")
+    auto_model = session_data.get("auto_model", True)
+    
+    # Only show if we have Phase 3B data
+    if current_round > 0 or total_disagreements > 0 or consensus_confidence is not None:
+        render_slds_card("🔄 Multi-Agent Collaboration Status")
+        
+        # Model selection
+        if selected_model or auto_model:
+            model_display = selected_model if selected_model else "(Auto-selected)"
+            auto_text = " (Auto)" if auto_model else " (Manual)"
+            st.markdown(f"**Model:** `{model_display}`{auto_text}")
+        
+        # Round info
+        if current_round > 0:
+            st.markdown(f"**Review Round:** {current_round}")
+        
+        # Disagreements and debates
+        if total_disagreements > 0:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Disagreements Detected", total_disagreements)
+            with col2:
+                st.metric("Debates Conducted", total_debates)
+            
+            if total_debates > 0:
+                resolved_pct = (debates_resolved / total_debates * 100) if total_debates > 0 else 0
+                st.progress(debates_resolved / total_debates if total_debates > 0 else 0)
+                st.caption(f"{debates_resolved}/{total_debates} debates resolved ({resolved_pct:.0f}%)")
+        
+        # Consensus status
+        if consensus_confidence is not None:
+            st.markdown("### Consensus Analysis")
+            
+            # Confidence meter
+            confidence_pct = consensus_confidence * 100
+            st.metric("Consensus Confidence", f"{confidence_pct:.1f}%")
+            st.progress(consensus_confidence)
+            
+            # Status based on confidence
+            if consensus_confidence >= 0.65:
+                st.success("✅ Consensus reached")
+            else:
+                st.warning("⚠️ Consensus not reached")
+            
+            # Summary
+            if consensus_summary:
+                with st.expander("📋 Consensus Details"):
+                    st.info(consensus_summary)
+        
+        # Adjudication status
+        if requires_adjudication:
+            if adjudication_complete:
+                st.info("⚖️ **Architect Adjudicator** has resolved conflicts")
+            else:
+                st.warning("⚖️ Requires **Architect Adjudicator** review")
+        
+        close_slds_card()
+
+
 def _get_agent_icon(agent_role: str) -> str:
     """
     Get icon for agent role.
@@ -235,6 +316,7 @@ def _get_agent_icon(agent_role: str) -> str:
         "reviewer_integration": "🔗",
         "reviewer_domain": "🎓",
         "reviewer_ops": "⚙️",
+        "architect_adjudicator": "⚖️",
         "faq": "📚",
         "human": "👤",
     }

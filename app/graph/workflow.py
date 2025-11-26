@@ -18,6 +18,13 @@ from app.graph.node_definitions import (
     reviewer_node,
     solution_architect_node,
 )
+from app.graph.phase3b_nodes import (
+    architect_adjudicator_node,
+    compute_consensus_node,
+    create_reviewer_round_node,
+    debate_cycle_node,
+    detect_disagreements_node,
+)
 from app.graph.state_models import (
     AgentRole,
     HumanAction,
@@ -95,17 +102,77 @@ def create_workflow_graph() -> StateGraph:
     workflow.add_edge("reviewer_nfr", "consolidate_reviews")
     workflow.add_edge("reviewer_security", "consolidate_reviews")
     workflow.add_edge("reviewer_integration", "consolidate_reviews")
-
-    # After review consolidation, determine next step with conditional routing
-    def route_after_reviews(state: WorkflowState) -> str:
-        """Route after all reviews complete."""
+    
+    # Phase 3B: Add debate and consensus nodes
+    workflow.add_node("create_reviewer_round", create_reviewer_round_node)
+    workflow.add_node("detect_disagreements", detect_disagreements_node)
+    workflow.add_node("debate_cycle", debate_cycle_node)
+    workflow.add_node("compute_consensus", compute_consensus_node)
+    workflow.add_node("architect_adjudicator", architect_adjudicator_node)
+    
+    # Consolidate reviews → Create reviewer round
+    workflow.add_edge("consolidate_reviews", "create_reviewer_round")
+    
+    # Create reviewer round → Detect disagreements
+    workflow.add_edge("create_reviewer_round", "detect_disagreements")
+    
+    # Detect disagreements → Conditional: debate or consensus
+    def route_after_disagreements(state: WorkflowState) -> str:
+        """Route after disagreement detection."""
+        if state.reviewer_rounds and state.reviewer_rounds[-1].disagreements:
+            logger.info("disagreements_found_routing_to_debate", session_id=state.session_id)
+            return "debate_cycle"
+        else:
+            logger.info("no_disagreements_routing_to_consensus", session_id=state.session_id)
+            return "compute_consensus"
+    
+    workflow.add_conditional_edges(
+        "detect_disagreements",
+        route_after_disagreements,
+        {
+            "debate_cycle": "debate_cycle",
+            "compute_consensus": "compute_consensus",
+        }
+    )
+    
+    # Debate cycle → Compute consensus
+    workflow.add_edge("debate_cycle", "compute_consensus")
+    
+    # Compute consensus → Conditional: adjudication or proceed
+    def route_after_consensus(state: WorkflowState) -> str:
+        """Route after consensus computation."""
+        if state.requires_adjudication:
+            logger.info("consensus_not_reached_routing_to_adjudicator", session_id=state.session_id)
+            return "architect_adjudicator"
+        else:
+            logger.info("consensus_reached_routing_to_next", session_id=state.session_id)
+            return "evaluate_next_step"
+    
+    workflow.add_conditional_edges(
+        "compute_consensus",
+        route_after_consensus,
+        {
+            "architect_adjudicator": "architect_adjudicator",
+            "evaluate_next_step": "evaluate_next_step",
+        }
+    )
+    
+    # Architect adjudicator → Evaluate next step
+    workflow.add_edge("architect_adjudicator", "evaluate_next_step")
+    
+    # Evaluate next step node (replaces old route_after_reviews)
+    workflow.add_node("evaluate_next_step", _evaluate_next_step_node)
+    
+    # After evaluation, determine next step with conditional routing
+    def route_after_evaluation(state: WorkflowState) -> str:
+        """Route after evaluation of consensus/adjudication."""
         next_step = WorkflowEvaluator.determine_next_step(state)
         logger.info("routing_decision", next_step=next_step, session_id=state.session_id)
         return next_step
 
     workflow.add_conditional_edges(
-        "consolidate_reviews",
-        route_after_reviews,
+        "evaluate_next_step",
+        route_after_evaluation,
         {
             "solution_architect": "solution_architect",  # Revision loop
             "human_approval": "human_approval",          # Escalation or approval needed
@@ -156,6 +223,37 @@ def _consolidate_reviews_node(state: WorkflowState) -> Dict[str, Any]:
     # Mark as in progress (reviews complete, deciding next step)
     state.status = WorkflowStatus.IN_PROGRESS
     state.updated_at = datetime.utcnow()
+    
+    return {
+        "status": state.status,
+        "updated_at": state.updated_at,
+    }
+
+
+def _evaluate_next_step_node(state: WorkflowState) -> Dict[str, Any]:
+    """
+    Evaluate next step after consensus/adjudication.
+    
+    This node prepares the state for conditional routing based on
+    the outcome of the review/debate/consensus cycle.
+    """
+    logger.info(
+        "evaluating_next_step",
+        session_id=state.session_id,
+        consensus_reached=not state.requires_adjudication,
+        adjudication_complete=state.adjudication_complete
+    )
+    
+    # Update state
+    state.status = WorkflowStatus.IN_PROGRESS
+    state.updated_at = datetime.utcnow()
+    
+    # Persist state
+    try:
+        persistence = get_persistence_manager()
+        persistence.save_state(state)
+    except Exception as e:
+        logger.error("state_persistence_failed", error=str(e), session_id=state.session_id)
     
     return {
         "status": state.status,
