@@ -282,11 +282,9 @@ def compile_workflow() -> Any:
     # TODO: Phase 2+ - Add LangSmith tracing configuration
     # TODO: Phase 2+ - Add checkpointing for state persistence
     
-    # Increase recursion limit for complex multi-agent workflows
-    # Default is 25, but full debate/consensus/adjudication cycles need more
-    compiled = graph.compile(recursion_limit=100)
+    compiled = graph.compile()
 
-    logger.info("workflow_compiled", recursion_limit=100)
+    logger.info("workflow_compiled")
 
     return compiled
 
@@ -319,8 +317,9 @@ async def execute_workflow(session_id: str) -> WorkflowState:
         # Compile workflow
         workflow = compile_workflow()
         
-        # Execute workflow
-        final_state = workflow.invoke(state)
+        # Execute workflow with increased recursion limit for complex multi-agent workflows
+        # Default is 25, but full debate/consensus/adjudication cycles need more
+        final_state = workflow.invoke(state, config={"recursion_limit": 100})
         
         # Convert dict back to WorkflowState if needed
         if isinstance(final_state, dict):
@@ -427,8 +426,8 @@ def run_council_workflow(session_id: str) -> WorkflowResult:
                 # Convert state to dict for LangGraph
                 state_dict = state.model_dump()
                 
-                # Execute workflow
-                result = workflow.invoke(state_dict)
+                # Execute workflow with increased recursion limit
+                result = workflow.invoke(state_dict, config={"recursion_limit": 100})
                 
                 # Convert result back to WorkflowState
                 if isinstance(result, dict):
