@@ -38,8 +38,8 @@ logger = get_logger(__name__)
 # Create routers
 health_router = APIRouter(prefix="/health", tags=["Health"])
 session_router = APIRouter(prefix="/sessions", tags=["Sessions"])
-workflow_router = APIRouter(prefix="/workflow", tags=["Workflow"])
 agent_router = APIRouter(prefix="/agents", tags=["Agents"])
+# Note: workflow_router is imported from workflow_routes.py
 
 # Initialize controllers
 session_controller = SessionController()
@@ -125,31 +125,7 @@ async def delete_session(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Workflow endpoints
-@workflow_router.post("/execute", response_model=WorkflowExecutionResponse)
-async def execute_workflow(request: WorkflowExecutionRequest):
-    """Execute workflow for a session."""
-    try:
-        return workflow_controller.execute_workflow(request)
-    except SessionNotFoundException as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except AgentCouncilException as e:
-        logger.error("execute_workflow_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@workflow_router.get("/{session_id}/status", response_model=WorkflowExecutionResponse)
-@traceable(name="api_get_workflow_status")
-async def get_workflow_status(session_id: str):
-    """Get workflow execution status."""
-    try:
-        return workflow_controller.get_workflow_status(session_id)
-    except SessionNotFoundException as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except AgentCouncilException as e:
-        logger.error("get_workflow_status_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
+# Note: Workflow endpoints are defined in workflow_routes.py
 
 # Agent endpoints
 @agent_router.post("/execute", response_model=AgentExecutionResponse)

@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from app.tools.base_tool import BaseTool, with_timeout, with_retry
 from app.tools.schemas import ToolResult
-from app.llm.providers import get_gemini_provider
+from app.llm.factory import get_llm_provider
 from app.utils.settings import get_settings
 
 # LangSmith tracing (optional)
@@ -130,7 +130,7 @@ class VibesClient(BaseTool):
         Returns:
             ToolResult with Gemini-powered analysis
         """
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a MuleSoft Vibes API design expert. Analyze this {spec_type.upper()} specification and provide:
@@ -207,7 +207,7 @@ Return ONLY a JSON object with this structure:
                 error_type="InvalidParameter"
             )
         
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a MuleSoft integration architect. Based on these requirements, recommend the best integration patterns:
@@ -270,7 +270,7 @@ Return ONLY a JSON object:
                 error_type="InvalidParameter"
             )
         
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a MuleSoft error handling expert. Review this design for error handling completeness:
@@ -330,7 +330,7 @@ Return ONLY a JSON object:
                 error_type="InvalidParameter"
             )
         
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a MuleSoft NFR validation expert. Check if these NFRs are complete and measurable:

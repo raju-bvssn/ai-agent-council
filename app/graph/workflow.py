@@ -32,7 +32,6 @@ from app.graph.state_models import (
     WorkflowState,
     WorkflowStatus,
 )
-from app.state.persistence import get_persistence_manager
 from app.utils.exceptions import WorkflowException
 from app.utils.logging import get_logger
 
@@ -250,6 +249,7 @@ def _evaluate_next_step_node(state: WorkflowState) -> Dict[str, Any]:
     
     # Persist state
     try:
+        from app.state.persistence import get_persistence_manager
         persistence = get_persistence_manager()
         persistence.save_state(state)
     except Exception as e:
@@ -299,6 +299,7 @@ async def execute_workflow(session_id: str) -> WorkflowState:
         logger.info("workflow_execution_started", session_id=session_id)
         
         # Load session state
+        from app.state.persistence import get_persistence_manager
         persistence = get_persistence_manager()
         state = persistence.load_state(session_id)
         
@@ -383,6 +384,7 @@ def run_council_workflow(session_id: str) -> WorkflowResult:
         logger.info("run_council_workflow_started", session_id=session_id)
         
         # Load session state
+        from app.state.persistence import get_persistence_manager
         persistence = get_persistence_manager()
         state = persistence.load_state(session_id)
         
@@ -484,6 +486,7 @@ def step_council_workflow(session_id: str, action: HumanAction, feedback: Option
                    action=action.value)
         
         # Load current state
+        from app.state.persistence import get_persistence_manager
         persistence = get_persistence_manager()
         state = persistence.load_state(session_id)
         
@@ -629,6 +632,7 @@ def get_workflow_status(session_id: str) -> WorkflowResult:
         WorkflowException: If session not found
     """
     try:
+        from app.state.persistence import get_persistence_manager
         persistence = get_persistence_manager()
         state = persistence.load_state(session_id)
         

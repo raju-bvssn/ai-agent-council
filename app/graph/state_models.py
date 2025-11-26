@@ -90,6 +90,71 @@ class DesignDocument(BaseModel):
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
 
+class Disagreement(BaseModel):
+    """
+    Represents a disagreement between reviewer agents.
+    
+    Captures conflicting recommendations that require resolution
+    through debate or adjudication.
+    """
+    disagreement_id: str
+    agent_roles: list[AgentRole]  # Agents involved in disagreement
+    topic: str  # What they disagree about
+    positions: dict[str, str]  # agent_role -> their position
+    severity: str = "medium"  # low, medium, high, critical
+    category: str  # e.g., "integration_pattern", "security_approach", "performance_tradeoff"
+    detected_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DebateOutcome(BaseModel):
+    """
+    Result of a debate cycle between disagreeing agents.
+    
+    Contains the debate process, revised positions, and whether
+    consensus was reached.
+    """
+    debate_id: str
+    disagreement: Disagreement
+    debate_rounds: int
+    agent_positions_revised: dict[str, str]  # agent_role -> revised position
+    consensus_reached: bool
+    resolution_summary: str
+    confidence: float  # 0-1, how confident the resolution is
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ConsensusResult(BaseModel):
+    """
+    Result of consensus computation across all reviewer feedback.
+    
+    Uses weighted scoring to determine if agents agree on the design.
+    """
+    round_id: str
+    agreed: bool  # Overall consensus reached
+    confidence: float  # Weighted confidence score (0-1)
+    summary: str  # Summary of consensus or remaining issues
+    disagreements_resolved: list[str]  # IDs of resolved disagreements
+    disagreements_unresolved: list[str]  # IDs still requiring adjudication
+    vote_breakdown: dict[str, str]  # agent_role -> vote (approve/revise/reject)
+    weights_applied: dict[str, float]  # agent_role -> weight used
+    threshold: float = 0.65  # Minimum confidence for consensus
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ReviewerRoundResult(BaseModel):
+    """
+    Complete result of a reviewer round including parallel execution,
+    debates, and consensus.
+    """
+    round_number: int
+    reviews: list[ReviewFeedback]
+    disagreements: list[Disagreement] = Field(default_factory=list)
+    debates: list[DebateOutcome] = Field(default_factory=list)
+    consensus: Optional[ConsensusResult] = None
+    requires_adjudication: bool = False
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
 class WorkflowState(BaseModel):
     """
     Complete state for the Agent Council workflow.
@@ -201,71 +266,6 @@ class HumanAction(str, Enum):
     APPROVE = "approve"
     REVISE = "revise"
     REJECT = "reject"
-
-
-class Disagreement(BaseModel):
-    """
-    Represents a disagreement between reviewer agents.
-    
-    Captures conflicting recommendations that require resolution
-    through debate or adjudication.
-    """
-    disagreement_id: str
-    agent_roles: list[AgentRole]  # Agents involved in disagreement
-    topic: str  # What they disagree about
-    positions: dict[str, str]  # agent_role -> their position
-    severity: str = "medium"  # low, medium, high, critical
-    category: str  # e.g., "integration_pattern", "security_approach", "performance_tradeoff"
-    detected_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class DebateOutcome(BaseModel):
-    """
-    Result of a debate cycle between disagreeing agents.
-    
-    Contains the debate process, revised positions, and whether
-    consensus was reached.
-    """
-    debate_id: str
-    disagreement: Disagreement
-    debate_rounds: int
-    agent_positions_revised: dict[str, str]  # agent_role -> revised position
-    consensus_reached: bool
-    resolution_summary: str
-    confidence: float  # 0-1, how confident the resolution is
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ConsensusResult(BaseModel):
-    """
-    Result of consensus computation across all reviewer feedback.
-    
-    Uses weighted scoring to determine if agents agree on the design.
-    """
-    round_id: str
-    agreed: bool  # Overall consensus reached
-    confidence: float  # Weighted confidence score (0-1)
-    summary: str  # Summary of consensus or remaining issues
-    disagreements_resolved: list[str]  # IDs of resolved disagreements
-    disagreements_unresolved: list[str]  # IDs still requiring adjudication
-    vote_breakdown: dict[str, str]  # agent_role -> vote (approve/revise/reject)
-    weights_applied: dict[str, float]  # agent_role -> weight used
-    threshold: float = 0.65  # Minimum confidence for consensus
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ReviewerRoundResult(BaseModel):
-    """
-    Complete result of a reviewer round including parallel execution,
-    debates, and consensus.
-    """
-    round_number: int
-    reviews: list[ReviewFeedback]
-    disagreements: list[Disagreement] = Field(default_factory=list)
-    debates: list[DebateOutcome] = Field(default_factory=list)
-    consensus: Optional[ConsensusResult] = None
-    requires_adjudication: bool = False
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
 class WorkflowResult(BaseModel):

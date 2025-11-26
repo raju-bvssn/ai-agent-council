@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional
 
 from app.tools.base_tool import BaseTool, with_timeout, with_retry
 from app.tools.schemas import ToolResult
-from app.llm.providers import get_gemini_provider
+from app.llm.factory import get_llm_provider
 from app.utils.settings import get_settings
 
 
@@ -110,7 +110,7 @@ class LucidClient(BaseTool):
         Returns:
             ToolResult with Mermaid diagram code
         """
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a Mermaid diagram expert. Generate a clean, professional architecture diagram for this system:
@@ -194,7 +194,7 @@ Return ONLY a JSON object:
         Returns:
             ToolResult with Mermaid sequence diagram code
         """
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a Mermaid diagram expert. Generate a sequence diagram for these interactions:
@@ -261,7 +261,7 @@ Return ONLY a JSON object:
                 error_type="InvalidParameter"
             )
         
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a Mermaid diagram expert. Generate a data flow diagram for this system:
@@ -327,7 +327,7 @@ Return ONLY a JSON object:
                 error_type="InvalidParameter"
             )
         
-        provider = get_gemini_provider()
+        provider = get_llm_provider()
         
         prompt = f"""
 You are a MuleSoft integration expert. Generate a Mermaid diagram for this integration flow:

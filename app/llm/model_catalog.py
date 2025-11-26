@@ -7,6 +7,7 @@ Only includes Mission Critical Data compliant models (Google Gemini).
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import List, Optional
 
 
 class ModelCapability(Enum):
@@ -122,7 +123,7 @@ class ModelCatalog:
         raise ValueError(f"Model '{model_name}' not found in catalog")
 
     @staticmethod
-    def list_models(provider: str | None = None) -> list[ModelInfo]:
+    def list_models(provider: Optional[str] = None) -> List[ModelInfo]:
         """
         List all available models.
 

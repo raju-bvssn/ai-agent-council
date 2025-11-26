@@ -11,7 +11,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from app.graph.state_models import Disagreement, DebateOutcome, AgentRole
-from app.llm.providers import get_gemini_provider
+from app.llm.factory import get_llm_provider
 from app.llm.model_selector import auto_select_model
 from app.utils.logging import get_logger
 
@@ -35,7 +35,7 @@ class DebateEngine:
         """
         self.max_rounds = max_rounds
         self.model = model
-        self.provider = get_gemini_provider()
+        self.provider = get_llm_provider()
         logger.info("debate_engine_initialized", max_rounds=max_rounds, model=model)
     
     async def facilitate_debate(

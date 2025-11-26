@@ -6,7 +6,7 @@ as required by Salesforce PS Mission Critical Data compliance.
 """
 
 import re
-from typing import Any
+from typing import Any, Optional
 
 from app.utils.exceptions import LLMSafetyException, PromptInjectionException
 from app.utils.logging import get_logger
@@ -197,7 +197,7 @@ class SafetyWrapper:
 
 
 # Global safety wrapper instance
-_safety_wrapper: SafetyWrapper | None = None
+_safety_wrapper: Optional[SafetyWrapper] = None
 
 
 def get_safety_wrapper(strict_mode: bool = True) -> SafetyWrapper:

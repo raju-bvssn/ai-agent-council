@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 from app.tools.base_tool import BaseTool, with_timeout, with_retry
 from app.tools.schemas import ToolResult
-from app.llm.providers import get_gemini_provider
+from app.llm.factory import get_llm_provider
 
 
 class GeminiClient(BaseTool):
@@ -38,7 +38,7 @@ class GeminiClient(BaseTool):
             config: Optional configuration for model selection and parameters
         """
         super().__init__(config)
-        self.provider = get_gemini_provider()
+        self.provider = get_llm_provider()
         self.default_model = self.config.get("model", "gemini-1.5-flash")
     
     @with_timeout(seconds=60)

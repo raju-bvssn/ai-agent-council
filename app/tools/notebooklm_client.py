@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from app.tools.base_tool import BaseTool, with_timeout, with_retry
 from app.tools.schemas import ToolResult
-from app.llm.providers import get_gemini_provider
+from app.llm.factory import get_llm_provider
 
 
 class NotebookLMClient(BaseTool):
@@ -40,7 +40,7 @@ class NotebookLMClient(BaseTool):
             config: Optional configuration
         """
         super().__init__(config)
-        self.provider = get_gemini_provider()
+        self.provider = get_llm_provider()
         self.logger.warning(
             "notebooklm_simulated_mode",
             reason="NotebookLM has no public API, using Gemini-based simulation"

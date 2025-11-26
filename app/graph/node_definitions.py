@@ -11,7 +11,6 @@ from app.agents.factory import AgentFactory
 from app.agents.performer import AgentInput
 from app.agents.critic import CriticInput
 from app.graph.state_models import AgentRole, ReviewDecision, ReviewFeedback, WorkflowState, WorkflowStatus
-from app.state.persistence import get_persistence_manager
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -25,6 +24,9 @@ def _persist_state(state: WorkflowState) -> None:
         state: WorkflowState to persist
     """
     try:
+        # Import here to avoid circular dependency
+        from app.state.persistence import get_persistence_manager
+        
         persistence = get_persistence_manager()
         persistence.save_state(state)
         logger.debug("state_persisted", session_id=state.session_id)

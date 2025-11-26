@@ -16,7 +16,6 @@ from app.graph.state_models import (
     WorkflowState,
     WorkflowStatus
 )
-from app.state.persistence import get_persistence_manager
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -304,6 +303,9 @@ def create_reviewer_round_node(state: WorkflowState) -> Dict[str, Any]:
 def _persist_state(state: WorkflowState) -> None:
     """Persist workflow state after node execution."""
     try:
+        # Import here to avoid circular dependency
+        from app.state.persistence import get_persistence_manager
+        
         persistence = get_persistence_manager()
         persistence.save_state(state)
         logger.debug("state_persisted", session_id=state.session_id)
