@@ -19,6 +19,15 @@ from app.tools.schemas import ToolResult
 from app.llm.providers import get_gemini_provider
 from app.utils.settings import get_settings
 
+# LangSmith tracing (optional)
+try:
+    from langsmith import traceable
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if not args else decorator(args[0])
+
 
 class VibesClient(BaseTool):
     """
@@ -54,6 +63,7 @@ class VibesClient(BaseTool):
     
     @with_timeout(seconds=45)
     @with_retry(max_attempts=3)
+    @traceable(name="vibes_execute")
     async def _execute(self, operation: str, parameters: Dict[str, Any]) -> ToolResult:
         """
         Execute Vibes operation.
@@ -81,6 +91,7 @@ class VibesClient(BaseTool):
                 error_type="InvalidOperation"
             )
     
+    @traceable(name="vibes_analyze_api_spec")
     async def _analyze_api_spec(
         self,
         spec_text: Optional[str],
@@ -179,6 +190,7 @@ Return ONLY a JSON object with this structure:
                 error_type="AnalysisError"
             )
     
+    @traceable(name="vibes_recommend_patterns")
     async def _recommend_patterns(self, description: Optional[str]) -> ToolResult:
         """
         Recommend integration patterns based on requirements.
