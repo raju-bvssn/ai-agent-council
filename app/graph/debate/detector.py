@@ -181,7 +181,9 @@ def _detect_concern_severity_conflicts(reviews: List[ReviewFeedback]) -> List[Di
     concern_map = {}
     for review in reviews:
         for concern in review.concerns:
-            concern_lower = concern.lower()
+            # Convert Concern object to string before calling .lower()
+            concern_str = str(concern) if not isinstance(concern, str) else concern
+            concern_lower = concern_str.lower()
             # Simple keyword matching for overlapping concerns
             if concern_lower not in concern_map:
                 concern_map[concern_lower] = []
