@@ -5,11 +5,26 @@ Defines Pydantic models for workflow state management.
 All state must be serializable for LangGraph persistence.
 """
 
+import operator
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Union, Annotated
 
 from pydantic import BaseModel, Field
+
+
+class Concern(BaseModel):
+    """Structured concern from a critic/reviewer agent."""
+    area: str
+    description: str
+    severity: str = "medium"
+
+
+class Suggestion(BaseModel):
+    """Structured suggestion from a critic/reviewer agent."""
+    area: str
+    suggestion: str
+    priority: Optional[str] = None
 
 
 class WorkflowStatus(str, Enum):
@@ -62,11 +77,12 @@ class ReviewFeedback(BaseModel):
     Feedback from a reviewer agent.
 
     Contains structured review results with decision and rationale.
+    Supports both simple strings and structured Concern/Suggestion objects.
     """
     reviewer_role: AgentRole
     decision: ReviewDecision
-    concerns: list[str] = Field(default_factory=list)
-    suggestions: list[str] = Field(default_factory=list)
+    concerns: list[Union[str, Concern]] = Field(default_factory=list)
+    suggestions: list[Union[str, Suggestion]] = Field(default_factory=list)
     rationale: str
     severity: str = Field(default="medium")  # low, medium, high, critical
 
@@ -275,11 +291,11 @@ class WorkflowState(BaseModel):
     design_history: list[DesignDocument] = Field(default_factory=list)
 
     # Agent interactions
-    messages: list[AgentMessage] = Field(default_factory=list)
+    messages: Annotated[list[AgentMessage], operator.add] = Field(default_factory=list)
     current_agent: Optional[AgentRole] = None
 
     # Review cycle
-    reviews: list[ReviewFeedback] = Field(default_factory=list)
+    reviews: Annotated[list[ReviewFeedback], operator.add] = Field(default_factory=list)
     revision_count: int = Field(default=0)
     max_revisions: int = Field(default=3)
 
@@ -302,16 +318,16 @@ class WorkflowState(BaseModel):
     models_used: dict[str, str] = Field(default_factory=dict)  # agent_role -> model_used
 
     # Phase 3B: Multi-agent debate and consensus
-    reviewer_rounds: list[ReviewerRoundResult] = Field(default_factory=list)
+    reviewer_rounds: Annotated[list[ReviewerRoundResult], operator.add] = Field(default_factory=list)
     current_round: int = 0
-    debates: list[DebateOutcome] = Field(default_factory=list)
-    consensus_history: list[ConsensusResult] = Field(default_factory=list)
+    debates: Annotated[list[DebateOutcome], operator.add] = Field(default_factory=list)
+    consensus_history: Annotated[list[ConsensusResult], operator.add] = Field(default_factory=list)
     requires_adjudication: bool = False
     adjudication_complete: bool = False
 
     # Error handling
-    errors: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
+    errors: Annotated[list[str], operator.add] = Field(default_factory=list)
+    warnings: Annotated[list[str], operator.add] = Field(default_factory=list)
 
     # Phase 3C: Deliverables
     deliverables: Optional[DeliverablesBundle] = None

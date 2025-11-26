@@ -9,9 +9,10 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Union
 
-from app.graph.state_models import ReviewDecision
+from app.graph.state_models import ReviewDecision, Concern, Suggestion
 from app.llm.providers import LLMProvider
 from app.llm.safety import get_safety_wrapper
 from app.llm.factory import get_llm_provider
@@ -31,8 +32,8 @@ class CriticInput(BaseModel):
 class CriticOutput(BaseModel):
     """Output model for critic agents with tool support."""
     decision: ReviewDecision
-    concerns: list[str] = []
-    suggestions: list[str] = []
+    concerns: list[Union[str, Concern]] = Field(default_factory=list)
+    suggestions: list[Union[str, Suggestion]] = Field(default_factory=list)
     rationale: str
     severity: str = "medium"
     success: bool = True
@@ -142,10 +143,14 @@ Content to Review:
 
 Provide structured feedback in JSON format with:
 - decision: "approve", "reject", "revise", or "escalate"
-- concerns: list of specific issues found
-- suggestions: list of actionable improvements
+- concerns: list of issues (can be strings OR objects with area, description, severity)
+- suggestions: list of improvements (can be strings OR objects with area, suggestion, priority)
 - rationale: explanation of your decision
 - severity: "low", "medium", "high", or "critical"
+
+For concerns and suggestions, you may use structured format like:
+{{"area": "Error Handling", "description": "Missing retry logic", "severity": "high"}}
+OR simple strings like: "Missing retry logic for API calls"
 """
 
         result = self.safety_wrapper.wrap_llm_call(
